@@ -143,6 +143,12 @@ enum BlockDirective {
     Frame {
         style: Option<crate::frontmatter::StyleDef>,
     },
+    Horizontal,
+    Columns {
+        count: usize,
+        current_col: usize,
+        column_bodies: Vec<Vec<proc_macro2::TokenStream>>,
+    },
 }
 
 /// A stack frame for a `:::` block directive.
@@ -164,6 +170,8 @@ pub(crate) struct ParsedMarkdown {
     pub(crate) display_refs: Vec<String>,
     /// Generated style lookup function tokens (when dynamic styling is used).
     pub(crate) style_table: Option<proc_macro2::TokenStream>,
+    /// Widget config keys referenced via `{key}` in widget directives.
+    pub(crate) used_widget_configs: std::collections::HashSet<String>,
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -186,7 +194,8 @@ fn parse_inline_styled_spans(
     bold: bool,
     italic: bool,
     strikethrough: bool,
-) -> bool {
+    source_span: proc_macro2::Span,
+) -> Result<bool, proc_macro2::TokenStream> {
     let mut found = false;
     let mut remaining = text;
 
@@ -222,10 +231,13 @@ fn parse_inline_styled_spans(
             }
 
             // Resolve style and emit styled fragment
-            let style = frontmatter.styles.get(class_name).unwrap_or_else(|| {
-                panic!("Undefined style class '::{}' in inline span", class_name)
-            });
-            let tokens = style_def_to_label_tokens(span_text, style, bold, italic, strikethrough);
+            let style = frontmatter.styles.get(class_name).ok_or_else(|| {
+                md_error(
+                    source_span,
+                    format!("Undefined style class '::{class_name}' in inline span"),
+                )
+            })?;
+            let tokens = style_def_to_label_tokens(span_text, style, bold, italic, strikethrough)?;
             fragments.push(Fragment::Widget(tokens));
 
             remaining = &after_ident[close_bracket + 1..];
@@ -245,7 +257,7 @@ fn parse_inline_styled_spans(
         });
     }
 
-    found
+    Ok(found)
 }
 
 pub(crate) fn capitalize_first(s: &str) -> String {
@@ -264,8 +276,16 @@ pub(crate) fn capitalize_first(s: &str) -> String {
 /// flushed into `TokenStream` code at block boundaries.
 ///
 /// The `frontmatter` parameter provides style and widget definitions for
-/// `::key` / `.class` resolution during code generation.
-pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> ParsedMarkdown {
+/// `::key` suffix and `::key(text)` inline span resolution during code generation.
+fn md_error(span: proc_macro2::Span, msg: impl std::fmt::Display) -> proc_macro2::TokenStream {
+    syn::Error::new(span, msg.to_string()).to_compile_error()
+}
+
+pub(crate) fn markdown_to_egui(
+    content: &str,
+    frontmatter: &Frontmatter,
+    source_span: proc_macro2::Span,
+) -> Result<ParsedMarkdown, proc_macro2::TokenStream> {
     use pulldown_cmark::{HeadingLevel, Options};
 
     let mut options = Options::empty();
@@ -297,6 +317,8 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
     let mut table_count: usize = 0;
 
     let mut widget_fields: Vec<WidgetField> = Vec::new();
+    let mut used_widget_configs: std::collections::HashSet<String> =
+        std::collections::HashSet::new();
     let mut references_state = false;
     let mut display_refs: Vec<String> = Vec::new();
 
@@ -308,6 +330,16 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
     let mut block_stack: Vec<BlockFrame> = Vec::new();
     let mut needs_style_table = false;
 
+    // Resolve spacing from frontmatter (compile-time constants)
+    let sp = frontmatter.spacing.as_ref();
+    let sp_paragraph = sp.and_then(|s| s.paragraph).unwrap_or(8.0_f32);
+    let sp_table = sp.and_then(|s| s.table).unwrap_or(8.0_f32);
+    let sp_h1 = sp.and_then(|s| s.heading_h1).unwrap_or(16.0_f32);
+    let sp_h2 = sp.and_then(|s| s.heading_h2).unwrap_or(12.0_f32);
+    let sp_h3 = sp.and_then(|s| s.heading_h3).unwrap_or(8.0_f32);
+    let sp_h4 = sp.and_then(|s| s.heading_h4).unwrap_or(4.0_f32);
+    let sp_item = sp.and_then(|s| s.item);
+
     fn flush_pending(
         pending_text: &mut String,
         fragments: &mut Vec<Fragment>,
@@ -315,16 +347,24 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
         bold: bool,
         italic: bool,
         strikethrough: bool,
-    ) {
+        source_span: proc_macro2::Span,
+    ) -> Result<(), proc_macro2::TokenStream> {
         if pending_text.is_empty() {
-            return;
+            return Ok(());
         }
         let text = std::mem::take(pending_text);
         // Check for ::class(text) inline styled spans
         if text.contains("::") && text.contains('(') {
-            if parse_inline_styled_spans(&text, fragments, frontmatter, bold, italic, strikethrough)
-            {
-                return;
+            if parse_inline_styled_spans(
+                &text,
+                fragments,
+                frontmatter,
+                bold,
+                italic,
+                strikethrough,
+                source_span,
+            )? {
+                return Ok(());
             }
         }
         fragments.push(Fragment::Styled {
@@ -333,6 +373,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
             italic,
             strikethrough,
         });
+        Ok(())
     }
 
     fn fragment_to_tokens(f: &Fragment) -> proc_macro2::TokenStream {
@@ -367,17 +408,21 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
 
     /// Emit accumulated fragments as an inline-wrapped paragraph.
     /// If the last fragment ends with `::key`, apply the frontmatter style to all fragments.
+    /// Returns `Some(field_name)` when a runtime `::$field` suffix was found,
+    /// signalling the caller to wrap the emitted code in a style override block.
     fn emit_paragraph(
         fragments: &mut Vec<Fragment>,
         code_body: &mut Vec<proc_macro2::TokenStream>,
         blockquote_depth: usize,
         frontmatter: &Frontmatter,
-    ) {
+        paragraph_spacing: f32,
+        source_span: proc_macro2::Span,
+    ) -> Result<Option<String>, proc_macro2::TokenStream> {
         if fragments.is_empty() {
-            return;
+            return Ok(None);
         }
 
-        // Check if the last fragment's text ends with {key}
+        // Check if the last fragment's text ends with ::key
         let style_key = {
             let mut found = None;
             if let Some(Fragment::Styled { text, .. }) = fragments.last() {
@@ -389,33 +434,52 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
             found
         };
 
+        // Separate runtime ($-prefixed) from compile-time style keys
+        let mut runtime_style_field: Option<String> = None;
         let resolved_style = if let Some((trimmed_text, ref key)) = style_key {
-            let style = frontmatter
-                .styles
-                .get(key.as_str())
-                .unwrap_or_else(|| {
-                    let hint = if frontmatter.widgets.contains_key(key) {
-                        format!(" '{key}' is a widget config, not a style. Attach it to a widget directive like [slider](field){{{key}}}, not to a paragraph.")
-                    } else {
-                        String::new()
-                    };
-                    panic!("Undefined style key '{key}' in frontmatter.{hint}")
-                });
-            // Update the last fragment's text to remove the {key}
-            if let Some(Fragment::Styled { text, .. }) = fragments.last_mut() {
-                *text = trimmed_text;
-                // Remove fragment entirely if it's now empty
-                if text.is_empty() {
-                    fragments.pop();
+            if key.starts_with('$') {
+                // Runtime style — strip $ and return the field name to caller
+                let field_name = key[1..].to_owned();
+                // Trim the last fragment
+                if let Some(Fragment::Styled { text, .. }) = fragments.last_mut() {
+                    *text = trimmed_text;
+                    if text.is_empty() {
+                        fragments.pop();
+                    }
                 }
+                runtime_style_field = Some(field_name);
+                None
+            } else {
+                let style = match frontmatter.styles.get(key.as_str()) {
+                    Some(s) => s,
+                    None => {
+                        let hint = if frontmatter.widgets.contains_key(key) {
+                            format!(
+                                " '{key}' is a widget config, not a style. Attach it to a widget directive like [slider](field){{{key}}}, not to a paragraph."
+                            )
+                        } else {
+                            String::new()
+                        };
+                        return Err(md_error(
+                            source_span,
+                            format!("Undefined style key '{key}' in frontmatter.{hint}"),
+                        ));
+                    }
+                };
+                if let Some(Fragment::Styled { text, .. }) = fragments.last_mut() {
+                    *text = trimmed_text;
+                    if text.is_empty() {
+                        fragments.pop();
+                    }
+                }
+                Some(style.clone())
             }
-            Some(style.clone())
         } else {
             None
         };
 
         if fragments.is_empty() {
-            return;
+            return Ok(None);
         }
 
         let calls: Vec<proc_macro2::TokenStream> = if let Some(ref style) = resolved_style {
@@ -441,9 +505,9 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                         }
                         style_def_to_label_tokens(text, &merged, *bold, *italic, *strikethrough)
                     }
-                    other => fragment_to_tokens(other),
+                    other => Ok(fragment_to_tokens(other)),
                 })
-                .collect()
+                .collect::<Result<Vec<_>, _>>()?
         } else {
             fragments.iter().map(fragment_to_tokens).collect()
         };
@@ -453,7 +517,9 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
             // Extract color from resolved style for quote bar coloring
             let bar_color_tokens = if let Some(ref style) = resolved_style {
                 if let Some(ref hex) = style.color {
-                    let [r, g, b] = parse_hex_color(hex).expect("Invalid color in frontmatter");
+                    let [r, g, b] = parse_hex_color(hex).map_err(|e| {
+                        md_error(source_span, format!("Invalid color in frontmatter: {e}"))
+                    })?;
                     quote! { Some([#r, #g, #b]) }
                 } else {
                     quote! { None }
@@ -474,26 +540,29 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                 });
             });
         }
-        code_body.push(quote! { ui.add_space(8.0); });
+        code_body.push(quote! { ui.add_space(#paragraph_spacing); });
         fragments.clear();
+        Ok(runtime_style_field)
     }
 
     /// Emit accumulated fragments as a list item (bullet or numbered).
     /// Each item is a separate top-level `ui.horizontal_wrapped(...)`.
     /// If the last fragment ends with `::key`, the style's color is applied to the
     /// bullet/number prefix and all text fragments get the full style treatment.
+    /// Returns `Some(field_name)` when a runtime `::$field` suffix was found.
     fn emit_list_item(
         fragments: &mut Vec<Fragment>,
         code_body: &mut Vec<proc_macro2::TokenStream>,
         list_stack: &mut [Option<usize>],
         blockquote_depth: usize,
         frontmatter: &Frontmatter,
-    ) {
+        source_span: proc_macro2::Span,
+    ) -> Result<Option<String>, proc_macro2::TokenStream> {
         if fragments.is_empty() {
-            return;
+            return Ok(None);
         }
 
-        // Check if the last fragment's text ends with {key}
+        // Check if the last fragment's text ends with ::key
         let style_key = {
             let mut found = None;
             if let Some(Fragment::Styled { text, .. }) = fragments.last() {
@@ -505,31 +574,49 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
             found
         };
 
+        let mut runtime_style_field: Option<String> = None;
         let resolved_style = if let Some((trimmed_text, ref key)) = style_key {
-            let style = frontmatter
-                .styles
-                .get(key.as_str())
-                .unwrap_or_else(|| {
-                    let hint = if frontmatter.widgets.contains_key(key) {
-                        format!(" '{key}' is a widget config, not a style. Attach it to a widget directive like [slider](field){{{key}}}, not to a paragraph.")
-                    } else {
-                        String::new()
-                    };
-                    panic!("Undefined style key '{key}' in frontmatter.{hint}")
-                });
-            if let Some(Fragment::Styled { text, .. }) = fragments.last_mut() {
-                *text = trimmed_text;
-                if text.is_empty() {
-                    fragments.pop();
+            if key.starts_with('$') {
+                let field_name = key[1..].to_owned();
+                if let Some(Fragment::Styled { text, .. }) = fragments.last_mut() {
+                    *text = trimmed_text;
+                    if text.is_empty() {
+                        fragments.pop();
+                    }
                 }
+                runtime_style_field = Some(field_name);
+                None
+            } else {
+                let style = match frontmatter.styles.get(key.as_str()) {
+                    Some(s) => s,
+                    None => {
+                        let hint = if frontmatter.widgets.contains_key(key) {
+                            format!(
+                                " '{key}' is a widget config, not a style. Attach it to a widget directive like [slider](field){{{key}}}, not to a paragraph."
+                            )
+                        } else {
+                            String::new()
+                        };
+                        return Err(md_error(
+                            source_span,
+                            format!("Undefined style key '{key}' in frontmatter.{hint}"),
+                        ));
+                    }
+                };
+                if let Some(Fragment::Styled { text, .. }) = fragments.last_mut() {
+                    *text = trimmed_text;
+                    if text.is_empty() {
+                        fragments.pop();
+                    }
+                }
+                Some(style.clone())
             }
-            Some(style.clone())
         } else {
             None
         };
 
         if fragments.is_empty() {
-            return;
+            return Ok(None);
         }
 
         let calls: Vec<proc_macro2::TokenStream> = if let Some(ref style) = resolved_style {
@@ -554,9 +641,9 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                         }
                         style_def_to_label_tokens(text, &merged, *bold, *italic, *strikethrough)
                     }
-                    other => fragment_to_tokens(other),
+                    other => Ok(fragment_to_tokens(other)),
                 })
-                .collect()
+                .collect::<Result<Vec<_>, _>>()?
         } else {
             fragments.iter().map(fragment_to_tokens).collect()
         };
@@ -566,7 +653,9 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
         // Extract color for prefix coloring
         let prefix_color_tokens = if let Some(ref style) = resolved_style {
             if let Some(ref hex) = style.color {
-                let [r, g, b] = parse_hex_color(hex).expect("Invalid color in frontmatter");
+                let [r, g, b] = parse_hex_color(hex).map_err(|e| {
+                    md_error(source_span, format!("Invalid color in frontmatter: {e}"))
+                })?;
                 quote! { Some([#r, #g, #b]) }
             } else {
                 quote! { None }
@@ -606,6 +695,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
             });
         }
         fragments.clear();
+        Ok(runtime_style_field)
     }
 
     fn cells_to_tokens(cells: &[Vec<Fragment>]) -> Vec<proc_macro2::TokenStream> {
@@ -630,6 +720,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
         table_id: usize,
         in_foreach: bool,
         code_body: &mut Vec<proc_macro2::TokenStream>,
+        table_spacing: f32,
     ) {
         let id_str = format!("md_table_{table_id}");
         let ncols = num_columns;
@@ -705,7 +796,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                     });
             });
         }
-        code_body.push(quote! { ui.add_space(8.0); });
+        code_body.push(quote! { ui.add_space(#table_spacing); });
     }
 
     /// Parse text containing `{field}` references into alternating Styled and ForeachField
@@ -840,15 +931,18 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                         bold,
                         italic,
                         strikethrough,
-                    );
+                        source_span,
+                    )?;
                     if !fragments.is_empty() && !list_stack.is_empty() {
-                        emit_list_item(
+                        // Ignore runtime style signal in this flush context
+                        let _ = emit_list_item(
                             &mut fragments,
                             &mut code_body,
                             &mut list_stack,
                             blockquote_depth,
                             frontmatter,
-                        );
+                            source_span,
+                        )?;
                     }
                     list_stack.push(start.map(|n| n as usize));
                 }
@@ -861,7 +955,8 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                         bold,
                         italic,
                         strikethrough,
-                    );
+                        source_span,
+                    )?;
                     italic = true;
                 }
                 Tag::Strong => {
@@ -872,7 +967,8 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                         bold,
                         italic,
                         strikethrough,
-                    );
+                        source_span,
+                    )?;
                     bold = true;
                 }
                 Tag::Strikethrough => {
@@ -883,7 +979,8 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                         bold,
                         italic,
                         strikethrough,
-                    );
+                        source_span,
+                    )?;
                     strikethrough = true;
                 }
                 Tag::CodeBlock(_info) => {
@@ -898,7 +995,8 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                         bold,
                         italic,
                         strikethrough,
-                    );
+                        source_span,
+                    )?;
                     in_link = Some(dest.to_string());
                     pending_text.clear();
                 }
@@ -910,7 +1008,8 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                         bold,
                         italic,
                         strikethrough,
-                    );
+                        source_span,
+                    )?;
                     in_image = Some(dest.to_string());
                     pending_text.clear();
                 }
@@ -929,6 +1028,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                         table_count,
                         in_foreach,
                         &mut code_body,
+                        sp_table,
                     );
                     table_count += 1;
                     in_table = false;
@@ -948,7 +1048,8 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                         bold,
                         italic,
                         strikethrough,
-                    );
+                        source_span,
+                    )?;
                     table_current_row.push(std::mem::take(&mut fragments));
                 }
                 Tag::Paragraph if in_table => {}
@@ -960,8 +1061,9 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                         bold,
                         italic,
                         strikethrough,
-                    );
-                    if !list_stack.is_empty() {
+                        source_span,
+                    )?;
+                    let runtime_field = if !list_stack.is_empty() {
                         // Inside a list item — emit as a list item row
                         emit_list_item(
                             &mut fragments,
@@ -969,7 +1071,8 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                             &mut list_stack,
                             blockquote_depth,
                             frontmatter,
-                        );
+                            source_span,
+                        )?
                     } else {
                         // Standalone paragraph
                         emit_paragraph(
@@ -977,7 +1080,36 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                             &mut code_body,
                             blockquote_depth,
                             frontmatter,
-                        );
+                            sp_paragraph,
+                            source_span,
+                        )?
+                    };
+                    // Wrap emitted code in runtime style override if ::$field was found
+                    if let Some(ref field_name) = runtime_field {
+                        needs_style_table = true;
+                        references_state = true;
+                        let already = widget_fields.iter().any(|f| f.name() == *field_name);
+                        if !already {
+                            widget_fields.push(WidgetField::Stateful {
+                                name: field_name.clone(),
+                                ty: WidgetType::String,
+                            });
+                        }
+                        let field_ident =
+                            syn::Ident::new(field_name, proc_macro2::Span::call_site());
+                        // Pop the emitted entries and wrap in style override
+                        let emitted: Vec<_> = code_body
+                            .drain(code_body.len().saturating_sub(2)..)
+                            .collect();
+                        code_body.push(quote! {
+                            {
+                                let __style_color = __resolve_style_color(&state.#field_ident);
+                                if let Some(__c) = __style_color {
+                                    ui.visuals_mut().override_text_color = Some(__c);
+                                }
+                                #(#emitted)*
+                            }
+                        });
                     }
                 }
                 Tag::Heading(level, _, _) => {
@@ -1004,14 +1136,14 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                             }
                             // Add top spacing before styled headings
                             let heading_space = match level {
-                                HeadingLevel::H1 => 16.0_f32,
-                                HeadingLevel::H2 => 12.0_f32,
-                                HeadingLevel::H3 => 8.0_f32,
-                                _ => 4.0_f32,
+                                HeadingLevel::H1 => sp_h1,
+                                HeadingLevel::H2 => sp_h2,
+                                HeadingLevel::H3 => sp_h3,
+                                _ => sp_h4,
                             };
                             code_body.push(quote! { ui.add_space(#heading_space); });
                             let tokens =
-                                style_def_to_label_tokens(&text, &merged, true, false, false);
+                                style_def_to_label_tokens(&text, &merged, true, false, false)?;
                             code_body.push(tokens);
                         } else {
                             {
@@ -1022,16 +1154,19 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                 } else {
                                     String::new()
                                 };
-                                panic!("Undefined style key '{key}' in frontmatter.{hint}")
+                                return Err(md_error(
+                                    source_span,
+                                    format!("Undefined style key '{key}' in frontmatter.{hint}"),
+                                ));
                             };
                         }
                     } else {
                         // Add top spacing before headings for visual breathing room
                         let heading_space = match level {
-                            HeadingLevel::H1 => 16.0_f32,
-                            HeadingLevel::H2 => 12.0_f32,
-                            HeadingLevel::H3 => 8.0_f32,
-                            _ => 4.0_f32,
+                            HeadingLevel::H1 => sp_h1,
+                            HeadingLevel::H2 => sp_h2,
+                            HeadingLevel::H3 => sp_h3,
+                            _ => sp_h4,
                         };
                         code_body.push(quote! { ui.add_space(#heading_space); });
                         code_body.push(match level {
@@ -1058,15 +1193,42 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                         bold,
                         italic,
                         strikethrough,
-                    );
+                        source_span,
+                    )?;
                     if !fragments.is_empty() {
-                        emit_list_item(
+                        let runtime_field = emit_list_item(
                             &mut fragments,
                             &mut code_body,
                             &mut list_stack,
                             blockquote_depth,
                             frontmatter,
-                        );
+                            source_span,
+                        )?;
+                        if let Some(ref field_name) = runtime_field {
+                            needs_style_table = true;
+                            references_state = true;
+                            let already = widget_fields.iter().any(|f| f.name() == *field_name);
+                            if !already {
+                                widget_fields.push(WidgetField::Stateful {
+                                    name: field_name.clone(),
+                                    ty: WidgetType::String,
+                                });
+                            }
+                            let field_ident =
+                                syn::Ident::new(field_name, proc_macro2::Span::call_site());
+                            let emitted = code_body.pop();
+                            if let Some(emitted) = emitted {
+                                code_body.push(quote! {
+                                    {
+                                        let __style_color = __resolve_style_color(&state.#field_ident);
+                                        if let Some(__c) = __style_color {
+                                            ui.visuals_mut().override_text_color = Some(__c);
+                                        }
+                                        #emitted
+                                    }
+                                });
+                            }
+                        }
                     }
                 }
                 Tag::Emphasis => {
@@ -1077,7 +1239,8 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                         bold,
                         italic,
                         strikethrough,
-                    );
+                        source_span,
+                    )?;
                     italic = false;
                 }
                 Tag::Strong => {
@@ -1088,7 +1251,8 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                         bold,
                         italic,
                         strikethrough,
-                    );
+                        source_span,
+                    )?;
                     bold = false;
                 }
                 Tag::Strikethrough => {
@@ -1099,7 +1263,8 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                         bold,
                         italic,
                         strikethrough,
-                    );
+                        source_span,
+                    )?;
                     strikethrough = false;
                 }
                 Tag::CodeBlock(_info) => {
@@ -1111,7 +1276,6 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                     let raw_link_text = std::mem::take(&mut pending_text);
                     let url = dest.to_string();
                     let selector = parse_selectors(&raw_link_text);
-
                     if is_widget_name(&selector.base_name) {
                         // Widget directive detected — intercept link as widget
                         in_link = None;
@@ -1125,9 +1289,12 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                 skip_next = true; // consume the {attrs} event
                             }
                         }
+                        if !widget_attrs.is_empty() {
+                            used_widget_configs.insert(widget_attrs.clone());
+                        }
 
                         // Resolve class-based styles from selectors
-                        let class_style = resolve_classes(&selector.classes, frontmatter);
+                        let class_style = resolve_classes(&selector.classes, frontmatter)?;
 
                         // {key} is now widget config only — use .class for styling
                         let style = class_style;
@@ -1147,8 +1314,12 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                     let strike_val = s.strikethrough.unwrap_or(false);
                                     let color_tokens = match &s.color {
                                         Some(hex) => {
-                                            let [r, g, b] =
-                                                parse_hex_color(hex).expect("Invalid button color");
+                                            let [r, g, b] = parse_hex_color(hex).map_err(|e| {
+                                                md_error(
+                                                    source_span,
+                                                    format!("Invalid button color: {e}"),
+                                                )
+                                            })?;
                                             quote! { .color(egui::Color32::from_rgb(#r, #g, #b)) }
                                         }
                                         None => quote! {},
@@ -1171,11 +1342,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
 
                                 // Stateful button: {config} present → click counter + optional advanced responses
                                 if !widget_attrs.is_empty() {
-                                    let wdef = frontmatter
-                                        .widgets
-                                        .get(&widget_attrs)
-                                        .cloned()
-                                        .unwrap_or_default();
+                                    let wdef = get_widget_def(&widget_attrs, frontmatter);
 
                                     let count_name = format!("{widget_attrs}_count");
                                     widget_fields.push(WidgetField::Stateful {
@@ -1256,8 +1423,12 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                         syn::Ident::new(&content, proc_macro2::Span::call_site());
                                     let wdef = get_widget_def(&widget_attrs, frontmatter);
                                     let fill_tokens = if let Some(ref hex) = wdef.fill {
-                                        let [r, g, b] = parse_hex_color(hex)
-                                            .expect("Invalid fill color in widget config");
+                                        let [r, g, b] = parse_hex_color(hex).map_err(|e| {
+                                            md_error(
+                                                source_span,
+                                                format!("Invalid fill color in widget config: {e}"),
+                                            )
+                                        })?;
                                         quote! { .fill(egui::Color32::from_rgb(#r, #g, #b)) }
                                     } else {
                                         quote! {}
@@ -1281,15 +1452,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                 });
                                 let field =
                                     syn::Ident::new(&content, proc_macro2::Span::call_site());
-                                let wdef = if !widget_attrs.is_empty() {
-                                    frontmatter
-                                        .widgets
-                                        .get(&widget_attrs)
-                                        .cloned()
-                                        .unwrap_or_default()
-                                } else {
-                                    WidgetDef::default()
-                                };
+                                let wdef = get_widget_def(&widget_attrs, frontmatter);
                                 let min_val = wdef.min.unwrap_or(0.0);
                                 let max_val = wdef.max.unwrap_or(1.0);
                                 let label = wdef.label.unwrap_or_default();
@@ -1319,15 +1482,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                     syn::Ident::new(&low_name, proc_macro2::Span::call_site());
                                 let high_field =
                                     syn::Ident::new(&high_name, proc_macro2::Span::call_site());
-                                let wdef = if !widget_attrs.is_empty() {
-                                    frontmatter
-                                        .widgets
-                                        .get(&widget_attrs)
-                                        .cloned()
-                                        .unwrap_or_default()
-                                } else {
-                                    WidgetDef::default()
-                                };
+                                let wdef = get_widget_def(&widget_attrs, frontmatter);
                                 let min_val = wdef.min.unwrap_or(0.0);
                                 let max_val = wdef.max.unwrap_or(1.0);
                                 quote! {
@@ -1347,15 +1502,9 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                 });
                                 let field =
                                     syn::Ident::new(&content, proc_macro2::Span::call_site());
-                                let label = if !widget_attrs.is_empty() {
-                                    frontmatter
-                                        .widgets
-                                        .get(&widget_attrs)
-                                        .and_then(|w| w.label.clone())
-                                        .unwrap_or(content.clone())
-                                } else {
-                                    content.clone()
-                                };
+                                let label = get_widget_def(&widget_attrs, frontmatter)
+                                    .label
+                                    .unwrap_or(content.clone());
                                 quote! {
                                     ui.checkbox(&mut state.#field, #label);
                                 }
@@ -1367,15 +1516,9 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                 });
                                 let field =
                                     syn::Ident::new(&content, proc_macro2::Span::call_site());
-                                let hint = if !widget_attrs.is_empty() {
-                                    frontmatter
-                                        .widgets
-                                        .get(&widget_attrs)
-                                        .and_then(|w| w.hint.clone())
-                                        .unwrap_or_default()
-                                } else {
-                                    String::new()
-                                };
+                                let hint = get_widget_def(&widget_attrs, frontmatter)
+                                    .hint
+                                    .unwrap_or_default();
                                 if hint.is_empty() {
                                     quote! {
                                         ui.text_edit_singleline(&mut state.#field);
@@ -1393,15 +1536,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                 });
                                 let field =
                                     syn::Ident::new(&content, proc_macro2::Span::call_site());
-                                let wdef = if !widget_attrs.is_empty() {
-                                    frontmatter
-                                        .widgets
-                                        .get(&widget_attrs)
-                                        .cloned()
-                                        .unwrap_or_default()
-                                } else {
-                                    WidgetDef::default()
-                                };
+                                let wdef = get_widget_def(&widget_attrs, frontmatter);
                                 let speed = wdef.speed.unwrap_or(0.1);
                                 quote! {
                                     ui.add(egui::DragValue::new(&mut state.#field).speed(#speed));
@@ -1423,15 +1558,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                 }
                                 let field =
                                     syn::Ident::new(&content, proc_macro2::Span::call_site());
-                                let wdef = if !widget_attrs.is_empty() {
-                                    frontmatter
-                                        .widgets
-                                        .get(&widget_attrs)
-                                        .cloned()
-                                        .unwrap_or_default()
-                                } else {
-                                    WidgetDef::default()
-                                };
+                                let wdef = get_widget_def(&widget_attrs, frontmatter);
                                 let fmt = wdef.format.as_deref().unwrap_or("{}");
                                 quote! {
                                     ui.label(format!(#fmt, state.#field));
@@ -1444,15 +1571,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                 });
                                 let field =
                                     syn::Ident::new(&content, proc_macro2::Span::call_site());
-                                let wdef = if !widget_attrs.is_empty() {
-                                    frontmatter
-                                        .widgets
-                                        .get(&widget_attrs)
-                                        .cloned()
-                                        .unwrap_or_default()
-                                } else {
-                                    WidgetDef::default()
-                                };
+                                let wdef = get_widget_def(&widget_attrs, frontmatter);
                                 let options = wdef
                                     .options
                                     .unwrap_or_else(|| vec!["Option A".into(), "Option B".into()]);
@@ -1476,15 +1595,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                 });
                                 let field =
                                     syn::Ident::new(&content, proc_macro2::Span::call_site());
-                                let wdef = if !widget_attrs.is_empty() {
-                                    frontmatter
-                                        .widgets
-                                        .get(&widget_attrs)
-                                        .cloned()
-                                        .unwrap_or_default()
-                                } else {
-                                    WidgetDef::default()
-                                };
+                                let wdef = get_widget_def(&widget_attrs, frontmatter);
                                 let options = wdef
                                     .options
                                     .unwrap_or_else(|| vec!["Option A".into(), "Option B".into()]);
@@ -1526,15 +1637,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                 });
                                 let field =
                                     syn::Ident::new(&content, proc_macro2::Span::call_site());
-                                let wdef = if !widget_attrs.is_empty() {
-                                    frontmatter
-                                        .widgets
-                                        .get(&widget_attrs)
-                                        .cloned()
-                                        .unwrap_or_default()
-                                } else {
-                                    WidgetDef::default()
-                                };
+                                let wdef = get_widget_def(&widget_attrs, frontmatter);
                                 let hint = wdef.hint.unwrap_or_default();
                                 let rows = wdef.rows.unwrap_or(4);
                                 quote! {
@@ -1552,15 +1655,9 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                 });
                                 let field =
                                     syn::Ident::new(&content, proc_macro2::Span::call_site());
-                                let hint = if !widget_attrs.is_empty() {
-                                    frontmatter
-                                        .widgets
-                                        .get(&widget_attrs)
-                                        .and_then(|w| w.hint.clone())
-                                        .unwrap_or_default()
-                                } else {
-                                    String::new()
-                                };
+                                let hint = get_widget_def(&widget_attrs, frontmatter)
+                                    .hint
+                                    .unwrap_or_default();
                                 quote! {
                                     ui.add(
                                         egui::TextEdit::singleline(&mut state.#field)
@@ -1576,15 +1673,9 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                 });
                                 let field =
                                     syn::Ident::new(&content, proc_macro2::Span::call_site());
-                                let label = if !widget_attrs.is_empty() {
-                                    frontmatter
-                                        .widgets
-                                        .get(&widget_attrs)
-                                        .and_then(|w| w.label.clone())
-                                        .unwrap_or_default()
-                                } else {
-                                    String::new()
-                                };
+                                let label = get_widget_def(&widget_attrs, frontmatter)
+                                    .label
+                                    .unwrap_or_default();
                                 if label.is_empty() {
                                     quote! {
                                         toggle_switch(ui, &mut state.#field);
@@ -1605,15 +1696,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                 });
                                 let field =
                                     syn::Ident::new(&content, proc_macro2::Span::call_site());
-                                let wdef = if !widget_attrs.is_empty() {
-                                    frontmatter
-                                        .widgets
-                                        .get(&widget_attrs)
-                                        .cloned()
-                                        .unwrap_or_default()
-                                } else {
-                                    WidgetDef::default()
-                                };
+                                let wdef = get_widget_def(&widget_attrs, frontmatter);
                                 let options = wdef
                                     .options
                                     .unwrap_or_else(|| vec!["Option A".into(), "Option B".into()]);
@@ -1648,15 +1731,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                     syn::Ident::new(&index_name, proc_macro2::Span::call_site());
                                 let list_field =
                                     syn::Ident::new(&widget_attrs, proc_macro2::Span::call_site());
-                                let wdef = if !widget_attrs.is_empty() {
-                                    frontmatter
-                                        .widgets
-                                        .get(&widget_attrs)
-                                        .cloned()
-                                        .unwrap_or_default()
-                                } else {
-                                    WidgetDef::default()
-                                };
+                                let wdef = get_widget_def(&widget_attrs, frontmatter);
                                 let max_h = wdef.max_height.unwrap_or(200.0) as f32;
                                 quote! {
                                     egui::ScrollArea::vertical()
@@ -1715,10 +1790,32 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                             code_body.push(widget_code);
                         }
                     } else {
-                        let class_style = resolve_classes(&selector.classes, frontmatter);
+                        // Detect likely widget typos: non-URL destination + non-widget name
+                        if !selector.base_name.is_empty()
+                            && !url.starts_with("http://")
+                            && !url.starts_with("https://")
+                            && !url.starts_with("mailto:")
+                            && !url.starts_with("file://")
+                            && !url.starts_with('#')
+                            && !url.starts_with('/')
+                        {
+                            return Err(md_error(
+                                source_span,
+                                format!(
+                                    "Unknown widget or link '[{}]({})'. \
+                                 If this is a widget, valid names are: {}. \
+                                 If this is a link, the URL must start with \
+                                 http://, https://, mailto:, file://, #, or /.",
+                                    selector.base_name,
+                                    url,
+                                    WIDGET_NAMES.join(", ")
+                                ),
+                            ));
+                        }
+                        let class_style = resolve_classes(&selector.classes, frontmatter)?;
 
                         if selector.base_name.is_empty() && class_style.is_some() {
-                            // Styled inline text span: [.premium](Hello World)
+                            // Styled inline text span via class selector: [.premium](Hello World)
                             let display_content = url.replace('_', " ");
                             let s = class_style.unwrap();
                             let tokens = style_def_to_label_tokens(
@@ -1727,7 +1824,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                 bold,
                                 italic,
                                 strikethrough,
-                            );
+                            )?;
                             fragments.push(Fragment::Widget(tokens));
                         } else {
                             // Normal hyperlink — apply class bold/italic/strikethrough if present
@@ -1790,6 +1887,41 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                 // Detect ::: block fence directives
                 if trimmed.starts_with(":::") {
                     let rest = trimmed[3..].trim();
+                    if rest == "next" {
+                        // Column separator: save current column, advance to next
+                        if let Some(frame) = block_stack.last_mut() {
+                            if let BlockDirective::Columns {
+                                count,
+                                current_col,
+                                column_bodies,
+                            } = &mut frame.directive
+                            {
+                                column_bodies[*current_col] = std::mem::take(&mut code_body);
+                                *current_col += 1;
+                                if *current_col >= *count {
+                                    return Err(md_error(
+                                        source_span,
+                                        format!(
+                                            "::: next used too many times — only {} columns defined",
+                                            count
+                                        ),
+                                    ));
+                                }
+                            } else {
+                                return Err(md_error(
+                                    source_span,
+                                    "::: next can only be used inside ::: columns",
+                                ));
+                            }
+                        } else {
+                            return Err(md_error(
+                                source_span,
+                                "::: next outside of any block directive",
+                            ));
+                        }
+                        event_idx += 1;
+                        continue;
+                    }
                     if rest.is_empty() || rest.starts_with('/') {
                         // Close the innermost block
                         if let Some(frame) = block_stack.pop() {
@@ -1799,13 +1931,16 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                             match frame.directive {
                                 BlockDirective::Foreach { row_fields } => {
                                     if row_fields.is_empty() {
-                                        panic!(
-                                            "[foreach]({}) body contains no {{field}} references. \
+                                        return Err(md_error(
+                                            source_span,
+                                            format!(
+                                                "[foreach]({}) body contains no {{field}} references. \
                                              Ensure blank lines surround the table or list inside the \
                                              foreach block — CommonMark requires paragraph separation \
                                              for block-level elements like tables.",
-                                            frame.field_name
-                                        );
+                                                frame.field_name
+                                            ),
+                                        ));
                                     }
                                     widget_fields.push(WidgetField::Foreach {
                                         name: frame.field_name.clone(),
@@ -1848,6 +1983,38 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                         }
                                     });
                                 }
+                                BlockDirective::Horizontal => {
+                                    code_body.push(quote! {
+                                        ui.horizontal(|ui| {
+                                            #(#body)*
+                                        });
+                                    });
+                                }
+                                BlockDirective::Columns {
+                                    count,
+                                    current_col,
+                                    mut column_bodies,
+                                } => {
+                                    // Save the last column's body
+                                    column_bodies[current_col] = body;
+                                    let col_count = count;
+                                    let col_tokens: Vec<proc_macro2::TokenStream> = column_bodies
+                                        .iter()
+                                        .enumerate()
+                                        .map(|(i, col_body)| {
+                                            quote! {
+                                                cols[#i].vertical(|ui| {
+                                                    #(#col_body)*
+                                                });
+                                            }
+                                        })
+                                        .collect();
+                                    code_body.push(quote! {
+                                        ui.columns(#col_count, |cols| {
+                                            #(#col_tokens)*
+                                        });
+                                    });
+                                }
                                 BlockDirective::Frame { style } => {
                                     let padding =
                                         style.as_ref().and_then(|s| s.inner_margin).unwrap_or(8.0);
@@ -1855,26 +2022,34 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                         style.as_ref().and_then(|s| s.outer_margin).unwrap_or(0.0);
                                     let stroke_w =
                                         style.as_ref().and_then(|s| s.stroke).unwrap_or(0.0);
-                                    let stroke_c = style
-                                        .as_ref()
-                                        .and_then(|s| s.stroke_color.as_ref())
-                                        .map(|hex| {
-                                            let [r, g, b] =
-                                                parse_hex_color(hex).expect("Invalid stroke color");
-                                            quote! { egui::Color32::from_rgb(#r, #g, #b) }
-                                        })
-                                        .unwrap_or_else(|| quote! { egui::Color32::TRANSPARENT });
+                                    let stroke_c = if let Some(hex) =
+                                        style.as_ref().and_then(|s| s.stroke_color.as_ref())
+                                    {
+                                        let [r, g, b] = parse_hex_color(hex).map_err(|e| {
+                                            md_error(
+                                                source_span,
+                                                format!("Invalid stroke color: {e}"),
+                                            )
+                                        })?;
+                                        quote! { egui::Color32::from_rgb(#r, #g, #b) }
+                                    } else {
+                                        quote! { egui::Color32::TRANSPARENT }
+                                    };
                                     let radius =
                                         style.as_ref().and_then(|s| s.corner_radius).unwrap_or(0.0);
-                                    let bg = style
-                                        .as_ref()
-                                        .and_then(|s| s.background.as_ref())
-                                        .map(|hex| {
-                                            let [r, g, b] = parse_hex_color(hex)
-                                                .expect("Invalid background color");
-                                            quote! { egui::Color32::from_rgb(#r, #g, #b) }
-                                        })
-                                        .unwrap_or_else(|| quote! { egui::Color32::TRANSPARENT });
+                                    let bg = if let Some(hex) =
+                                        style.as_ref().and_then(|s| s.background.as_ref())
+                                    {
+                                        let [r, g, b] = parse_hex_color(hex).map_err(|e| {
+                                            md_error(
+                                                source_span,
+                                                format!("Invalid background color: {e}"),
+                                            )
+                                        })?;
+                                        quote! { egui::Color32::from_rgb(#r, #g, #b) }
+                                    } else {
+                                        quote! { egui::Color32::TRANSPARENT }
+                                    };
                                     code_body.push(quote! {
                                         egui::Frame::default()
                                             .inner_margin(#padding)
@@ -1946,11 +2121,40 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                                     saved_code_body: std::mem::take(&mut code_body),
                                 });
                             }
+                            "horizontal" => {
+                                block_stack.push(BlockFrame {
+                                    directive: BlockDirective::Horizontal,
+                                    field_name: String::new(),
+                                    saved_code_body: std::mem::take(&mut code_body),
+                                });
+                            }
+                            "columns" => {
+                                let count: usize = field_name.parse().map_err(|_| {
+                                    md_error(
+                                        source_span,
+                                        format!(
+                                            "::: columns requires a number, got '{field_name}'"
+                                        ),
+                                    )
+                                })?;
+                                block_stack.push(BlockFrame {
+                                    directive: BlockDirective::Columns {
+                                        count,
+                                        current_col: 0,
+                                        column_bodies: vec![Vec::new(); count],
+                                    },
+                                    field_name: String::new(),
+                                    saved_code_body: std::mem::take(&mut code_body),
+                                });
+                            }
                             _ => {
-                                panic!(
-                                    "Unknown block directive ':::{directive_name}'. \
-                                     Valid: foreach, if, style, frame"
-                                );
+                                return Err(md_error(
+                                    source_span,
+                                    format!(
+                                        "Unknown block directive ':::{directive_name}'. \
+                                     Valid: foreach, if, style, frame, horizontal, columns"
+                                    ),
+                                ));
                             }
                         }
                     }
@@ -1973,7 +2177,8 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                             bold,
                             italic,
                             strikethrough,
-                        );
+                            source_span,
+                        )?;
                         if let Some(BlockFrame {
                             directive: BlockDirective::Foreach { row_fields },
                             ..
@@ -2003,7 +2208,8 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                     bold,
                     italic,
                     strikethrough,
-                );
+                    source_span,
+                )?;
                 fragments.push(Fragment::InlineCode(code_text.to_string()));
             }
             Event::SoftBreak => {
@@ -2017,13 +2223,16 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                     bold,
                     italic,
                     strikethrough,
-                );
-                emit_paragraph(
+                    source_span,
+                )?;
+                let _ = emit_paragraph(
                     &mut fragments,
                     &mut code_body,
                     blockquote_depth,
                     frontmatter,
-                );
+                    sp_paragraph,
+                    source_span,
+                )?;
             }
             Event::Rule => {
                 code_body.push(quote! { separator(ui); });
@@ -2035,16 +2244,15 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
 
     // Generate style lookup table if dynamic styling is used
     let style_table = if needs_style_table {
-        let arms: Vec<proc_macro2::TokenStream> = frontmatter
-            .styles
-            .iter()
-            .filter_map(|(name, style)| {
-                style.color.as_ref().map(|hex| {
-                    let [r, g, b] = parse_hex_color(hex).expect("Invalid color in frontmatter");
-                    quote! { #name => Some(egui::Color32::from_rgb(#r, #g, #b)), }
-                })
-            })
-            .collect();
+        let mut arms: Vec<proc_macro2::TokenStream> = Vec::new();
+        for (name, style) in &frontmatter.styles {
+            if let Some(hex) = &style.color {
+                let [r, g, b] = parse_hex_color(hex).map_err(|e| {
+                    md_error(source_span, format!("Invalid color in frontmatter: {e}"))
+                })?;
+                arms.push(quote! { #name => Some(egui::Color32::from_rgb(#r, #g, #b)), });
+            }
+        }
         Some(quote! {
             fn __resolve_style_color(name: &str) -> Option<egui::Color32> {
                 match name {
@@ -2057,11 +2265,17 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
         None
     };
 
-    ParsedMarkdown {
+    // Prepend item_spacing override if configured
+    if let Some(item_sp) = sp_item {
+        code_body.insert(0, quote! { ui.spacing_mut().item_spacing.y = #item_sp; });
+    }
+
+    Ok(ParsedMarkdown {
         code_body,
         widget_fields,
         references_state,
         display_refs,
         style_table,
-    }
+        used_widget_configs,
+    })
 }

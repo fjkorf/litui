@@ -1,6 +1,5 @@
-//! Snapshot tests for the multi-page demo app using `define_markdown_app!`.
-//! Tests each generated page to verify rendering, including the Monitor page
-//! with display widgets reading from AppState.
+//! Snapshot tests for the multi-page tutorial app using `define_markdown_app!`.
+//! Tests each generated page to verify rendering.
 
 #![expect(clippy::unwrap_used)]
 
@@ -11,40 +10,17 @@ mod demo {
     use markdown_to_egui_macro::define_markdown_app;
 
     define_markdown_app! {
-        parent: "../../examples/demo_content/content/_app.md",
-        "../../examples/demo_content/content/about.md",
-        "../../examples/demo_content/content/text_showcase.md",
-        "../../examples/demo_content/content/list_demo.md",
-        "../../examples/demo_content/content/table_demo.md",
-        "../../examples/demo_content/content/style_gallery.md",
-        "../../examples/demo_content/content/form_demo.md",
-        "../../examples/demo_content/content/monitor.md",
+        parent: "../../examples/08_multi_page/content/_app.md",
+        "../../examples/08_multi_page/content/about.md",
+        "../../examples/08_multi_page/content/form.md",
+        "../../examples/08_multi_page/content/monitor.md",
     }
 }
 
 #[test]
 fn demo_about() {
-    snapshot_markdown("demo_about", |ui| demo::render_about(ui));
-}
-
-#[test]
-fn demo_text() {
-    snapshot_markdown("demo_text", |ui| demo::render_text(ui));
-}
-
-#[test]
-fn demo_lists() {
-    snapshot_markdown("demo_lists", |ui| demo::render_lists(ui));
-}
-
-#[test]
-fn demo_tables() {
-    snapshot_markdown("demo_tables", |ui| demo::render_tables(ui));
-}
-
-#[test]
-fn demo_styles() {
-    snapshot_markdown("demo_styles", |ui| demo::render_styles(ui));
+    let state = demo::AppState::default();
+    snapshot_markdown("demo_about", move |ui| demo::render_about(ui, &state));
 }
 
 #[test]
@@ -59,19 +35,6 @@ fn demo_form() {
 fn demo_monitor_default() {
     let state = demo::AppState::default();
     snapshot_markdown("demo_monitor_default", move |ui| {
-        demo::render_monitor(ui, &state);
-    });
-}
-
-#[test]
-fn demo_monitor_with_values() {
-    let mut state = demo::AppState::default();
-    state.volume = 85.0;
-    state.muted = false;
-    state.brightness = 42.5;
-    state.username = "Alice".to_string();
-    state.count = 7.0;
-    snapshot_markdown("demo_monitor_with_values", move |ui| {
         demo::render_monitor(ui, &state);
     });
 }

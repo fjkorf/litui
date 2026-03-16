@@ -1,0 +1,9 @@
+[package]
+name = "tut_02_styles"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+litui = { path = "../../crates/litui" }
+eframe = "0.33"

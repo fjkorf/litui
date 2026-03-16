@@ -1,6 +1,6 @@
 ---
 styles:
-  frame:
+  panel:
     inner_margin: 12
     background: "#1E1E2E"
     stroke: 1
@@ -18,13 +18,13 @@ styles:
 
 ## Frames
 
-::: frame frame
+::: frame panel
 
 This is a frame with padding and border.
 
 :::
 
-::: frame frame_accent
+::: frame panel_accent
 
 This is an accented frame with red border.
 

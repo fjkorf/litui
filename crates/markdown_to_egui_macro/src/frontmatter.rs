@@ -11,7 +11,7 @@
 //! 3. [`merge_frontmatter()`] merges a parent's styles/widgets into a child
 //!    (used by `define_markdown_app!` with the `parent:` keyword).
 //! 4. At flush points in the event loop, [`detect_style_suffix()`] checks for
-//!    trailing `{key}` references, and [`style_def_to_label_tokens()`]
+//!    trailing `::key` suffixes, and [`style_def_to_label_tokens()`]
 //!    emits the corresponding `styled_label_rich()` call.
 //!
 //! See `knowledge/frontmatter-and-styles.md` for the full style system design.
@@ -26,9 +26,10 @@ use serde::Deserialize;
 /// Top-level frontmatter deserialized from the YAML block at the start of a `.md` file.
 ///
 /// Contains optional page metadata (for `define_markdown_app!`), a map of named
-/// style presets referenced via `::key` or `.class` in the markdown body, and a
+/// style presets referenced via `::key` suffixes and `::key(text)` inline spans, and a
 /// map of widget configurations referenced via `{config}` after widget directives.
 #[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Frontmatter {
     #[serde(default)]
     pub(crate) page: Option<PageDef>,
@@ -36,6 +37,31 @@ pub(crate) struct Frontmatter {
     pub(crate) styles: HashMap<String, StyleDef>,
     #[serde(default)]
     pub(crate) widgets: HashMap<String, WidgetDef>,
+    #[serde(default)]
+    pub(crate) spacing: Option<SpacingDef>,
+}
+
+/// Spacing overrides for the generated UI.
+///
+/// All values are in pixels. When absent, built-in defaults are used:
+/// paragraph 8, heading H1 16 / H2 12 / H3 8 / H4+ 4, table 8.
+#[derive(Deserialize, Default, Clone)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct SpacingDef {
+    /// Vertical gap after paragraphs (default 8.0)
+    pub(crate) paragraph: Option<f32>,
+    /// Vertical gap after tables (default 8.0)
+    pub(crate) table: Option<f32>,
+    /// Top spacing before H1 (default 16.0)
+    pub(crate) heading_h1: Option<f32>,
+    /// Top spacing before H2 (default 12.0)
+    pub(crate) heading_h2: Option<f32>,
+    /// Top spacing before H3 (default 8.0)
+    pub(crate) heading_h3: Option<f32>,
+    /// Top spacing before H4+ (default 4.0)
+    pub(crate) heading_h4: Option<f32>,
+    /// egui item_spacing.y override — applied via `ui.spacing_mut()` at render start
+    pub(crate) item: Option<f32>,
 }
 
 /// Page metadata from the `page:` section of frontmatter.
@@ -44,6 +70,7 @@ pub(crate) struct Frontmatter {
 /// enum variant name, the UI label for navigation, and whether this page
 /// is the default (exactly one page must set `default: true`).
 #[derive(Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct PageDef {
     pub(crate) name: String,
     pub(crate) label: String,
@@ -58,6 +85,10 @@ pub(crate) struct PageDef {
     /// Default height for top/bottom panels or windows.
     #[serde(default)]
     pub(crate) height: Option<f32>,
+    /// For `panel: window`: name of a `bool` field on `AppState` that controls visibility.
+    /// When set, the window gets an X close button and is state-driven instead of page-driven.
+    #[serde(default)]
+    pub(crate) open: Option<String>,
 }
 
 /// Widget-specific configuration from the `widgets:` section of frontmatter.
@@ -70,6 +101,7 @@ pub(crate) struct PageDef {
 /// - `hint` -- textedit placeholder hint text
 /// - `format` -- display widget format string (e.g., `"{:.1}"`)
 #[derive(Deserialize, Default, Clone)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct WidgetDef {
     pub(crate) min: Option<f64>,
     pub(crate) max: Option<f64>,
@@ -84,8 +116,6 @@ pub(crate) struct WidgetDef {
     pub(crate) track_hover: Option<bool>,
     /// Track secondary click for buttons (generates `{name}_secondary_count: u32` field)
     pub(crate) track_secondary: Option<bool>,
-    /// Tooltip text shown on hover for any widget
-    pub(crate) tooltip: Option<String>,
     /// Suffix appended to slider display (e.g., `"°"`)
     pub(crate) suffix: Option<String>,
     /// Prefix prepended to slider display (e.g., `"$"`)
@@ -109,6 +139,7 @@ pub(crate) struct WidgetDef {
 /// - `monospace` -- use monospace font instead of body font
 /// - `weak` -- render with weak (dimmed) text color
 #[derive(Deserialize, Default, Clone)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct StyleDef {
     pub(crate) bold: Option<bool>,
     pub(crate) italic: Option<bool>,
@@ -144,10 +175,30 @@ pub(crate) fn merge_frontmatter(parent: &Frontmatter, child: Frontmatter) -> Fro
     for (k, v) in child.widgets {
         widgets.insert(k, v);
     }
+    let spacing = match (parent.spacing.clone(), child.spacing) {
+        (Some(p), Some(c)) => Some(merge_spacing_defs(&p, &c)),
+        (None, c @ Some(_)) => c,
+        (p @ Some(_), None) => p,
+        (None, None) => None,
+    };
     Frontmatter {
         page: child.page,
         styles,
         widgets,
+        spacing,
+    }
+}
+
+/// Merge two SpacingDefs. Child's `Some` fields override parent.
+pub(crate) fn merge_spacing_defs(parent: &SpacingDef, child: &SpacingDef) -> SpacingDef {
+    SpacingDef {
+        paragraph: child.paragraph.or(parent.paragraph),
+        table: child.table.or(parent.table),
+        heading_h1: child.heading_h1.or(parent.heading_h1),
+        heading_h2: child.heading_h2.or(parent.heading_h2),
+        heading_h3: child.heading_h3.or(parent.heading_h3),
+        heading_h4: child.heading_h4.or(parent.heading_h4),
+        item: child.item.or(parent.item),
     }
 }
 
@@ -174,17 +225,6 @@ pub(crate) fn merge_style_defs(base: &StyleDef, overlay: &StyleDef) -> StyleDef 
             .clone()
             .or_else(|| base.stroke_color.clone()),
         corner_radius: overlay.corner_radius.or(base.corner_radius),
-    }
-}
-
-impl StyleDef {
-    /// Returns true if this style has any frame/container properties (padding, border, etc.)
-    pub(crate) fn has_frame_properties(&self) -> bool {
-        self.inner_margin.is_some()
-            || self.outer_margin.is_some()
-            || self.stroke.is_some()
-            || self.stroke_color.is_some()
-            || self.corner_radius.is_some()
     }
 }
 
@@ -249,20 +289,26 @@ pub(crate) fn parse_selectors(link_text: &str) -> ParsedSelector {
     }
 }
 
-/// Resolve class names into a merged StyleDef. Panics at compile time on undefined classes.
-pub(crate) fn resolve_classes(classes: &[String], frontmatter: &Frontmatter) -> Option<StyleDef> {
+/// Resolve class names into a merged StyleDef. Returns compile error on undefined classes.
+pub(crate) fn resolve_classes(
+    classes: &[String],
+    frontmatter: &Frontmatter,
+) -> Result<Option<StyleDef>, proc_macro2::TokenStream> {
     if classes.is_empty() {
-        return None;
+        return Ok(None);
     }
     let mut result = StyleDef::default();
     for class_name in classes {
-        let style = frontmatter
-            .styles
-            .get(class_name.as_str())
-            .unwrap_or_else(|| panic!("Undefined style class '.{class_name}' in frontmatter"));
+        let style = frontmatter.styles.get(class_name.as_str()).ok_or_else(|| {
+            syn::Error::new(
+                proc_macro2::Span::call_site(),
+                format!("Undefined style class '.{class_name}' in frontmatter"),
+            )
+            .to_compile_error()
+        })?;
         result = merge_style_defs(&result, style);
     }
-    Some(result)
+    Ok(Some(result))
 }
 
 /// Split content into (yaml_frontmatter, remaining_markdown).
@@ -342,7 +388,7 @@ pub(crate) fn style_def_to_label_tokens(
     base_bold: bool,
     base_italic: bool,
     base_strikethrough: bool,
-) -> proc_macro2::TokenStream {
+) -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream> {
     let bold = style.bold.unwrap_or(base_bold);
     let italic = style.italic.unwrap_or(base_italic);
     let strikethrough = style.strikethrough.unwrap_or(base_strikethrough);
@@ -350,16 +396,23 @@ pub(crate) fn style_def_to_label_tokens(
     let monospace = style.monospace.unwrap_or(false);
     let weak = style.weak.unwrap_or(false);
 
+    fn color_error(msg: impl std::fmt::Display) -> proc_macro2::TokenStream {
+        syn::Error::new(proc_macro2::Span::call_site(), msg.to_string()).to_compile_error()
+    }
+
     let color_tokens = match &style.color {
         Some(hex) => {
-            let [r, g, b] = parse_hex_color(hex).expect("Invalid color in frontmatter");
+            let [r, g, b] = parse_hex_color(hex)
+                .map_err(|e| color_error(format!("Invalid color in frontmatter: {e}")))?;
             quote! { Some([#r, #g, #b]) }
         }
         None => quote! { None },
     };
     let bg_tokens = match &style.background {
         Some(hex) => {
-            let [r, g, b] = parse_hex_color(hex).expect("Invalid background color in frontmatter");
+            let [r, g, b] = parse_hex_color(hex).map_err(|e| {
+                color_error(format!("Invalid background color in frontmatter: {e}"))
+            })?;
             quote! { Some([#r, #g, #b]) }
         }
         None => quote! { None },
@@ -369,7 +422,7 @@ pub(crate) fn style_def_to_label_tokens(
         None => quote! { None },
     };
 
-    quote! {
+    Ok(quote! {
         styled_label_rich(ui, #text, #bold, #italic, #strikethrough, #underline, #color_tokens, #bg_tokens, #size_tokens, #monospace, #weak);
-    }
+    })
 }

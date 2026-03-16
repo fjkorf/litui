@@ -69,15 +69,12 @@ use crate::parse::{ParsedMarkdown, markdown_to_egui};
 pub(crate) fn load_and_parse_md(
     path: &str,
     parent: Option<&Frontmatter>,
+    source_span: proc_macro2::Span,
 ) -> Result<(Frontmatter, ParsedMarkdown), proc_macro2::TokenStream> {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default();
     let abs_path = std::path::Path::new(&manifest_dir).join(path);
     let content = std::fs::read_to_string(&abs_path).map_err(|e| {
-        Error::new(
-            proc_macro2::Span::call_site(),
-            format!("Failed to read {path}: {e}"),
-        )
-        .to_compile_error()
+        Error::new(source_span, format!("Failed to read {path}: {e}")).to_compile_error()
     })?;
 
     let (yaml_str, markdown) = strip_frontmatter(&content);
@@ -86,7 +83,7 @@ pub(crate) fn load_and_parse_md(
     } else {
         serde_yaml::from_str(yaml_str).map_err(|e| {
             Error::new(
-                proc_macro2::Span::call_site(),
+                source_span,
                 format!("Failed to parse frontmatter YAML in {path}: {e}"),
             )
             .to_compile_error()
@@ -99,7 +96,7 @@ pub(crate) fn load_and_parse_md(
         child_frontmatter
     };
 
-    let parsed = markdown_to_egui(markdown, &frontmatter);
+    let parsed = markdown_to_egui(markdown, &frontmatter, source_span)?;
     Ok((frontmatter, parsed))
 }
 
@@ -113,8 +110,30 @@ pub fn include_markdown_ui(input: proc_macro::TokenStream) -> proc_macro::TokenS
         Err(e) => return e.to_compile_error().into(),
     };
 
-    match load_and_parse_md(&lit_str.value(), None) {
-        Ok((_frontmatter, parsed)) => parsed_to_include_tokens(parsed).into(),
+    match load_and_parse_md(&lit_str.value(), None, lit_str.span()) {
+        Ok((frontmatter, parsed)) => {
+            // Validate unused widget configs
+            let unused: Vec<&String> = frontmatter
+                .widgets
+                .keys()
+                .filter(|k| !parsed.used_widget_configs.contains(k.as_str()))
+                .collect();
+            if !unused.is_empty() {
+                let mut names: Vec<&str> = unused.iter().map(|s| s.as_str()).collect();
+                names.sort();
+                return Error::new(
+                    lit_str.span(),
+                    format!(
+                        "Unused widget config(s) in frontmatter `widgets:` section: {}. \
+                         These are defined but never referenced by any widget via {{key}}.",
+                        names.join(", ")
+                    ),
+                )
+                .to_compile_error()
+                .into();
+            }
+            parsed_to_include_tokens(parsed).into()
+        }
         Err(err) => err.into(),
     }
 }

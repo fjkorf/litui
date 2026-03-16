@@ -1,86 +1,80 @@
 # Hello Markdown
 
-> Run it: `cargo run -p markdown_macro_example`
+> Run it: `cargo run -p tut_01_hello`
 
-Your first litui UI in 60 seconds. Write markdown, compile it into egui widgets, done.
+litui turns markdown into native egui widgets at compile time. No runtime parsing, no overhead — just write `.md` and get a UI.
 
-## Setup
+## The markdown
 
-Add litui and eframe to your `Cargo.toml`:
+```text
+# Hello litui
 
-```toml
-[dependencies]
-litui = "0.33"
-eframe = "0.33"
+This is a **bold** statement with *italic* and ~~strikethrough~~ text.
+
+## Lists
+
+- First item
+- Second item with **bold**
+- Nested list:
+  - Sub-item one
+  - Sub-item two
+
+1. Ordered first
+2. Ordered second
+
+## Blockquotes
+
+> This is a blockquote.
+> It can span multiple lines.
+
+## Code
+
+Inline `code` works too.
+
+## Links
+
+Visit [egui](https://github.com/emilk/egui) for more.
 ```
 
-## Write some markdown
-
-Create `content.md` next to your `src/` directory. litui supports the standard markdown features you'd expect:
-
-- **Headings** — H1 (28pt), H2 (22pt), H3 (18pt)
-- **Inline formatting** — `**bold**`, `*italic*`, `~~strikethrough~~`, combinations
-- **Inline code** — backtick-delimited monospace with background
-- **Bullet and numbered lists** — nested to any depth
-- **Blockquotes** — nested with depth-based vertical bars
-- **Fenced code blocks** — monospace with background
-- **Links** — clickable egui hyperlinks
-- **Horizontal rules** — `---` separators
-- **Line breaks** — soft and hard
-
-![Headings and text](img/hello_headings.png)
-
-![Lists and blockquotes](img/hello_lists.png)
-
-## Wire it up
-
-Create `src/main.rs`:
+## The Rust
 
 ```rust,ignore
 use eframe::egui;
 use litui::*;
 
 fn main() -> eframe::Result {
-    eframe::run_native(
-        "My First litui App",
-        eframe::NativeOptions::default(),
-        Box::new(|_cc| Ok(Box::new(MyApp))),
-    )
-}
-
-struct MyApp;
-
-impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let render = include_markdown_ui!("content.md");
+    eframe::run_simple_native("01 Hello", Default::default(), |ctx, _| {
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
+                let render = include_markdown_ui!("content.md");
                 render(ui);
             });
         });
-    }
+    })
 }
 ```
 
-That's it. `include_markdown_ui!` reads your markdown at compile time and returns a closure. Call it with `&mut Ui` and your content renders as native egui widgets.
+`include_markdown_ui!` reads the `.md` file at compile time and returns a closure that renders egui widgets. Call it with `render(ui)` — that's it.
 
-No runtime parsing. No markdown library in your binary. Just compiled Rust.
+## Supported elements
 
-## What just happened
+| Markdown | Renders as |
+|----------|-----------|
+| `# Heading` | `h1()` / `h2()` / `h3()` sized labels |
+| `**bold**` | Bold `RichText` |
+| `*italic*` | Italic `RichText` |
+| `` `code` `` | Monospace with background |
+| `- item` | Indented bullet list |
+| `1. item` | Numbered list |
+| `> quote` | Vertical bar + indented text |
+| `[text](url)` | Clickable hyperlink |
+| `---` | Horizontal separator |
+| Fenced code blocks | Monospace group with background |
 
-The macro:
+## Expert tip
 
-1. Reads `content.md` at compile time
-2. Parses it with pulldown-cmark
-3. Emits a Rust closure that calls egui helper functions (`h1()`, `styled_label()`, `emit_bullet_prefix()`, etc.)
-4. The closure captures nothing — it's pure function calls
+The macro runs during `cargo build`, not at runtime. It parses the markdown with pulldown-cmark, walks the event stream, and emits Rust function calls (`h1(ui, "Hello")`, `styled_label(ui, "bold text", true, false, false)`, etc.). The result is a closure with zero allocation and zero parsing at runtime — just direct egui API calls baked into your binary.
 
-The generated code uses helper functions from `markdown_to_egui_helpers` — `h1()`, `h2()`, `styled_label()`, `emit_bullet_prefix()`, `inline_code()`, etc. These are re-exported by litui so you only need `use litui::*`.
+## What we built
 
-litui applies sensible spacing by default: 8px between paragraphs, 16/12/8px top margins before headings, and proportional list indentation. No configuration needed for clean typography.
-
-If your markdown has no interactive widgets (sliders, checkboxes, etc.), the macro returns a simple `impl FnMut(&mut egui::Ui)`. We'll add widgets in [Tutorial 04](crate::_tutorial::_04_widgets).
-
-## Next up
-
-[Frontmatter Styles](crate::_tutorial::_02_frontmatter_styles) — make your text colorful with YAML-defined style presets.
+A static markdown page rendered as native egui widgets with one line of Rust.

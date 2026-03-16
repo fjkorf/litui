@@ -92,6 +92,7 @@ pub(crate) fn parsed_to_include_tokens(parsed: ParsedMarkdown) -> proc_macro2::T
         references_state: _,
         display_refs: _,
         style_table,
+        used_widget_configs: _,
     } = parsed;
 
     if widget_fields.is_empty() {
@@ -229,7 +230,7 @@ pub(crate) fn define_markdown_app_impl(
     let mut shared_render_fn: Option<proc_macro2::TokenStream> = None;
 
     if let Some(ref parent_lit) = app_input.parent_path {
-        let (fm, parsed) = crate::load_and_parse_md(&parent_lit.value(), None)?;
+        let (fm, parsed) = crate::load_and_parse_md(&parent_lit.value(), None, parent_lit.span())?;
         if fm.page.is_some() {
             return Err(Error::new(
                 parent_lit.span(),
@@ -262,13 +263,14 @@ pub(crate) fn define_markdown_app_impl(
     struct PageInfo {
         page_def: PageDef,
         parsed: ParsedMarkdown,
+        frontmatter_widget_keys: Vec<String>,
     }
 
     let mut pages: Vec<PageInfo> = Vec::new();
 
     for lit in &app_input.page_paths {
         let path_str = lit.value();
-        let (fm, parsed) = crate::load_and_parse_md(&path_str, parent_fm.as_ref())?;
+        let (fm, parsed) = crate::load_and_parse_md(&path_str, parent_fm.as_ref(), lit.span())?;
         let page_def = fm.page.ok_or_else(|| {
             Error::new(
                 lit.span(),
@@ -279,7 +281,12 @@ pub(crate) fn define_markdown_app_impl(
             )
             .to_compile_error()
         })?;
-        pages.push(PageInfo { page_def, parsed });
+        let frontmatter_widget_keys = fm.widgets.keys().cloned().collect();
+        pages.push(PageInfo {
+            page_def,
+            parsed,
+            frontmatter_widget_keys,
+        });
     }
 
     // Validate exactly one default
@@ -360,10 +367,15 @@ pub(crate) fn define_markdown_app_impl(
     for page_info in &pages {
         for field in &page_info.parsed.widget_fields {
             let field_name = field.name();
-            let is_display_self_decl = page_info
-                .parsed
-                .display_refs
-                .contains(&field_name.to_owned());
+            // A display self-declaration is a String-typed field whose name
+            // appears in display_refs. Input widgets (slider→f64, checkbox→bool,
+            // etc.) are NOT self-declarations even if a [display] also references
+            // the same field on the same page.
+            let is_display_self_decl = field.ty() == Some(WidgetType::String)
+                && page_info
+                    .parsed
+                    .display_refs
+                    .contains(&field_name.to_owned());
             if is_display_self_decl {
                 display_declared.insert(field_name.to_owned());
                 continue;
@@ -402,6 +414,19 @@ pub(crate) fn define_markdown_app_impl(
         }
     }
 
+    // Pass 3: auto-declare `open: bool` fields for window pages with `open:` in frontmatter
+    for page_info in &pages {
+        if let Some(ref open_field) = page_info.page_def.open {
+            if !seen_fields.contains(open_field) {
+                seen_fields.insert(open_field.clone());
+                all_widget_fields.push(WidgetField::Stateful {
+                    name: open_field.clone(),
+                    ty: WidgetType::Bool,
+                });
+            }
+        }
+    }
+
     let has_app_state = !all_widget_fields.is_empty();
 
     // Display widgets now self-declare their fields, so this validation
@@ -420,6 +445,35 @@ pub(crate) fn define_markdown_app_impl(
                 )
                 .to_compile_error());
             }
+        }
+    }
+
+    // ── Validate unused widget configs ─────────────────────────────
+    // Union all used_widget_configs across pages, compare against all defined configs
+    {
+        let mut all_used: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut all_defined: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for page_info in &pages {
+            all_used.extend(page_info.parsed.used_widget_configs.iter().cloned());
+            all_defined.extend(page_info.frontmatter_widget_keys.iter().cloned());
+        }
+        let unused: Vec<&String> = all_defined
+            .iter()
+            .filter(|k| !all_used.contains(k.as_str()))
+            .collect();
+        if !unused.is_empty() {
+            let mut names: Vec<&str> = unused.iter().map(|s| s.as_str()).collect();
+            names.sort();
+            return Err(Error::new(
+                proc_macro2::Span::call_site(),
+                format!(
+                    "Unused widget config(s) in frontmatter `widgets:` section: {}. \
+                     These are defined but never referenced by any widget via {{key}}. \
+                     Remove them or check for typos.",
+                    names.join(", ")
+                ),
+            )
+            .to_compile_error());
         }
     }
 
@@ -471,6 +525,7 @@ pub(crate) fn define_markdown_app_impl(
         width: Option<f32>,
         height: Option<f32>,
         has_mutable_widgets: bool,
+        open: Option<String>,
     }
     let mut page_containers: Vec<PageContainer> = Vec::new();
 
@@ -544,6 +599,7 @@ pub(crate) fn define_markdown_app_impl(
             width: page_info.page_def.width,
             height: page_info.page_def.height,
             has_mutable_widgets,
+            open: page_info.page_def.open.clone(),
         });
     }
 
@@ -633,23 +689,35 @@ pub(crate) fn define_markdown_app_impl(
                 });
             }
             Some("window") => {
-                let label = page_containers
-                    .iter()
-                    .find(|p| p.variant == *variant)
-                    .map(|_| variant.to_string())
-                    .unwrap_or_default();
+                let label = variant.to_string();
                 let width = pc.width.unwrap_or(350.0);
-                window_code.push(quote! {
-                    if self.current_page == Page::#variant {
+                if let Some(ref open_field) = pc.open {
+                    // State-driven window: visibility controlled by a bool field on AppState
+                    let open_ident = syn::Ident::new(open_field, proc_macro2::Span::call_site());
+                    window_code.push(quote! {
                         egui::Window::new(#label)
                             .default_width(#width)
+                            .open(&mut self.state.#open_ident)
                             .show(ctx, |ui| {
                                 egui::ScrollArea::vertical().show(ui, |ui| {
                                     #render_call;
                                 });
                             });
-                    }
-                });
+                    });
+                } else {
+                    // Page-driven window: visible when navigated to
+                    window_code.push(quote! {
+                        if self.current_page == Page::#variant {
+                            egui::Window::new(#label)
+                                .default_width(#width)
+                                .show(ctx, |ui| {
+                                    egui::ScrollArea::vertical().show(ui, |ui| {
+                                        #render_call;
+                                    });
+                                });
+                        }
+                    });
+                }
             }
             _ => {
                 // Central panel page — dispatched in show_page()
@@ -694,7 +762,19 @@ pub(crate) fn define_markdown_app_impl(
             }
         }
     } else {
-        quote! {}
+        // No containers — generate a simple nav + central panel layout
+        quote! {
+            pub fn show_all(&mut self, ctx: &egui::Context) {
+                egui::TopBottomPanel::top("md_nav").show(ctx, |ui| {
+                    self.show_nav(ui);
+                });
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        self.show_page(ui);
+                    });
+                });
+            }
+        }
     };
 
     let md_app = quote! {
