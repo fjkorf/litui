@@ -360,10 +360,15 @@ pub(crate) fn define_markdown_app_impl(
     for page_info in &pages {
         for field in &page_info.parsed.widget_fields {
             let field_name = field.name();
-            let is_display_self_decl = page_info
-                .parsed
-                .display_refs
-                .contains(&field_name.to_owned());
+            // A display self-declaration is a String-typed field whose name
+            // appears in display_refs. Input widgets (slider→f64, checkbox→bool,
+            // etc.) are NOT self-declarations even if a [display] also references
+            // the same field on the same page.
+            let is_display_self_decl = field.ty() == Some(WidgetType::String)
+                && page_info
+                    .parsed
+                    .display_refs
+                    .contains(&field_name.to_owned());
             if is_display_self_decl {
                 display_declared.insert(field_name.to_owned());
                 continue;
@@ -399,6 +404,19 @@ pub(crate) fn define_markdown_app_impl(
                 name: name.clone(),
                 ty: WidgetType::String,
             });
+        }
+    }
+
+    // Pass 3: auto-declare `open: bool` fields for window pages with `open:` in frontmatter
+    for page_info in &pages {
+        if let Some(ref open_field) = page_info.page_def.open {
+            if !seen_fields.contains(open_field) {
+                seen_fields.insert(open_field.clone());
+                all_widget_fields.push(WidgetField::Stateful {
+                    name: open_field.clone(),
+                    ty: WidgetType::Bool,
+                });
+            }
         }
     }
 
@@ -471,6 +489,7 @@ pub(crate) fn define_markdown_app_impl(
         width: Option<f32>,
         height: Option<f32>,
         has_mutable_widgets: bool,
+        open: Option<String>,
     }
     let mut page_containers: Vec<PageContainer> = Vec::new();
 
@@ -544,6 +563,7 @@ pub(crate) fn define_markdown_app_impl(
             width: page_info.page_def.width,
             height: page_info.page_def.height,
             has_mutable_widgets,
+            open: page_info.page_def.open.clone(),
         });
     }
 
@@ -633,23 +653,35 @@ pub(crate) fn define_markdown_app_impl(
                 });
             }
             Some("window") => {
-                let label = page_containers
-                    .iter()
-                    .find(|p| p.variant == *variant)
-                    .map(|_| variant.to_string())
-                    .unwrap_or_default();
+                let label = variant.to_string();
                 let width = pc.width.unwrap_or(350.0);
-                window_code.push(quote! {
-                    if self.current_page == Page::#variant {
+                if let Some(ref open_field) = pc.open {
+                    // State-driven window: visibility controlled by a bool field on AppState
+                    let open_ident = syn::Ident::new(open_field, proc_macro2::Span::call_site());
+                    window_code.push(quote! {
                         egui::Window::new(#label)
                             .default_width(#width)
+                            .open(&mut self.state.#open_ident)
                             .show(ctx, |ui| {
                                 egui::ScrollArea::vertical().show(ui, |ui| {
                                     #render_call;
                                 });
                             });
-                    }
-                });
+                    });
+                } else {
+                    // Page-driven window: visible when navigated to
+                    window_code.push(quote! {
+                        if self.current_page == Page::#variant {
+                            egui::Window::new(#label)
+                                .default_width(#width)
+                                .show(ctx, |ui| {
+                                    egui::ScrollArea::vertical().show(ui, |ui| {
+                                        #render_call;
+                                    });
+                                });
+                        }
+                    });
+                }
             }
             _ => {
                 // Central panel page — dispatched in show_page()

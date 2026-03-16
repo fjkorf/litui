@@ -25,7 +25,7 @@ let generated = include_markdown_ui!("test.md");
 ```
 
 ## Example
-See `examples/markdown_macro_example/main.rs` for a minimal egui app using the macro.
+See `examples/01_hello/src/main.rs` for a minimal egui app using the macro.
 See `tests/basic_macro.rs` for a test example.
 
 ## Roadmap
