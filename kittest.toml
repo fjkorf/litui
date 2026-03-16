@@ -1,0 +1,2 @@
+output_path = "snapshots"
+threshold = 0.6

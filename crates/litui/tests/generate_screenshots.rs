@@ -35,23 +35,20 @@ fn render_and_save(name: &str, ui_fn: impl FnMut(&mut egui::Ui) + 'static) {
 fn hello_headings() {
     render_and_save(
         "hello_headings",
-        include_markdown_ui!("fixtures/hello_headings.md"),
+        include_litui_ui!("fixtures/hello_headings.md"),
     );
 }
 
 #[test]
 fn hello_lists() {
-    render_and_save(
-        "hello_lists",
-        include_markdown_ui!("fixtures/hello_lists.md"),
-    );
+    render_and_save("hello_lists", include_litui_ui!("fixtures/hello_lists.md"));
 }
 
 #[test]
 fn styles_basic() {
     render_and_save(
         "styles_basic",
-        include_markdown_ui!("fixtures/styles_basic.md"),
+        include_litui_ui!("fixtures/styles_basic.md"),
     );
 }
 
@@ -59,7 +56,7 @@ fn styles_basic() {
 fn tables_basic() {
     render_and_save(
         "tables_basic",
-        include_markdown_ui!("fixtures/tables_basic.md"),
+        include_litui_ui!("fixtures/tables_basic.md"),
     );
 }
 
@@ -67,7 +64,7 @@ fn tables_basic() {
 fn tables_formatted() {
     render_and_save(
         "tables_formatted",
-        include_markdown_ui!("fixtures/tables_formatted.md"),
+        include_litui_ui!("fixtures/tables_formatted.md"),
     );
 }
 
@@ -75,54 +72,51 @@ fn tables_formatted() {
 fn tables_widgets() {
     render_and_save(
         "tables_widgets",
-        include_markdown_ui!("fixtures/tables_widgets.md"),
+        include_litui_ui!("fixtures/tables_widgets.md"),
     );
 }
 
 #[test]
 fn widgets_form() {
-    let (render, mut state) = include_markdown_ui!("fixtures/widgets_form.md");
+    let (render, mut state) = include_litui_ui!("fixtures/widgets_form.md");
     render_and_save("widgets_form", move |ui| render(ui, &mut state));
 }
 
 #[test]
 fn widgets_new() {
-    let (render, mut state) = include_markdown_ui!("fixtures/widgets_new.md");
+    let (render, mut state) = include_litui_ui!("fixtures/widgets_new.md");
     render_and_save("widgets_new", move |ui| render(ui, &mut state));
 }
 
 #[test]
 fn selectors() {
-    render_and_save("selectors", include_markdown_ui!("fixtures/selectors.md"));
+    render_and_save("selectors", include_litui_ui!("fixtures/selectors.md"));
 }
 
 #[test]
 fn styled_blockquote() {
     render_and_save(
         "styled_blockquote",
-        include_markdown_ui!("fixtures/styled_blockquote.md"),
+        include_litui_ui!("fixtures/styled_blockquote.md"),
     );
 }
 
 #[test]
 fn styled_list() {
-    render_and_save(
-        "styled_list",
-        include_markdown_ui!("fixtures/styled_list.md"),
-    );
+    render_and_save("styled_list", include_litui_ui!("fixtures/styled_list.md"));
 }
 
 #[test]
 fn selectors_full() {
     render_and_save(
         "selectors_full",
-        include_markdown_ui!("fixtures/selectors_full.md"),
+        include_litui_ui!("fixtures/selectors_full.md"),
     );
 }
 
 #[test]
 fn image_widget() {
-    let render = include_markdown_ui!("fixtures/image_widget.md");
+    let render = include_litui_ui!("fixtures/image_widget.md");
     let mut loaders_installed = false;
     render_and_save("image_widget", move |ui| {
         if !loaders_installed {

@@ -1,6 +1,6 @@
-# include_markdown_ui Macro Demo
+# include_litui_ui Macro Demo
 
-This Markdown file demonstrates the features supported by [include_markdown_ui](https://docs.rs/markdown_to_egui_macro).
+This Markdown file demonstrates the features supported by [include_litui_ui](https://docs.rs/litui_macro).
 
 ---
 

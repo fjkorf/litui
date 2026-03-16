@@ -8,11 +8,12 @@ publish = false
 
 [dependencies]
 egui = "0.33"
-egui_extras = { version = "0.33", features = ["all_loaders"] }
+egui_extras = { version = "0.33", features = ["all_loaders", "datepicker"] }
+chrono = "0.4"
 egui_kittest = { version = "0.33", features = ["wgpu", "snapshot"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
-markdown_to_egui_macro = { path = "../../crates/markdown_to_egui_macro" }
-markdown_to_egui_helpers = { path = "../../crates/markdown_to_egui_helpers" }
+litui_macro = { path = "../../crates/litui_macro" }
+litui_helpers = { path = "../../crates/litui_helpers" }
 
 [lints]
 workspace = true

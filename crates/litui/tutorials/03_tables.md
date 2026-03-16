@@ -1,106 +1,40 @@
 # Tables
 
-> Run it: `cargo run -p eframe_demo` — navigate to the Tables page
+> Run it: `cargo run -p tut_03_tables`
 
-Tables use standard GFM (GitHub Flavored Markdown) syntax and render as `egui::Grid` with striped rows and bold headers.
+This tutorial adds **GFM tables** — pipe-delimited rows that render as striped `egui::Grid` widgets.
 
-## Basic table
+## What's new
 
-```markdown
-| Name   | Role       | Status  |
-|--------|------------|---------|
-| Alice  | Engineer   | Active  |
-| Bob    | Designer   | Away    |
-| Claire | PM         | Active  |
+Standard GitHub-Flavored Markdown table syntax. Headers render bold, rows alternate background color (striped).
+
+## The markdown
+
+```text
+| Name | Role | Status |
+|------|------|--------|
+| Alice | Engineer | Active |
+| Bob | Designer | On leave |
+| Carol | Manager | Active |
 ```
-
-The separator row (`|---|---|---|`) is required — it tells pulldown-cmark this is a table, not just pipes in text. Alignment colons (`:---`, `:---:`, `---:`) are parsed but egui Grid cells are left-aligned by default.
-
-![Simple table](img/tables_basic.png)
 
 ## Inline formatting in cells
 
-Standard inline markdown works inside table cells:
+Tables support bold, italic, code, and links inside cells:
 
-```markdown
-| Feature        | Status            | Notes                          |
-|----------------|-------------------|--------------------------------|
-| **Rendering**  | *Complete*        | `v0.33` release                |
-| ~~Old parser~~ | Removed           | Replaced with pulldown-cmark   |
-| Links          | [Docs](https://docs.rs) | External links work     |
-| Mixed          | **bold** + `code` | Multiple formats in one cell   |
+```text
+| Feature | Syntax | Notes |
+|---------|--------|-------|
+| **Bold** | `**text**` | Double asterisks |
+| *Italic* | `*text*` | Single asterisks |
+| `Code` | backticks | Inline code |
+| [Link](https://egui.rs) | `[text](url)` | Clickable |
 ```
 
-Bold, italic, strikethrough, inline code, and hyperlinks all work. They compose the same way they do in paragraphs.
+## Expert tip
 
-![Formatted table](img/tables_formatted.png)
+pulldown-cmark emits table events in a flat sequence: `Start(Table)`, `Start(TableHead)`, `Start(TableCell)`, text events, `End(TableCell)`, etc. The macro accumulates cell fragments into a 2D grid, then emits a single `egui::Grid::new(id).num_columns(N).striped(true).show(ui, |ui| { ... })` call. Each cell's fragments are flushed as inline `horizontal_wrapped` content. Grid IDs are auto-generated (`md_table_0`, `md_table_1`, ...) to avoid egui ID collisions.
 
-## Widgets inside tables
+## What we built
 
-Table cells can contain widgets. This is useful for building settings panels and data entry forms:
-
-```markdown
----
-widgets:
-  vol:
-    min: 0
-    max: 100
----
-
-| Setting  | Control               | Current         |
-|----------|-----------------------|-----------------|
-| Volume   | [slider](volume){vol} | [display](volume) |
-| Mute     | [checkbox](muted)     |                 |
-| Status   | [progress](0.75)      | 75%             |
-```
-
-Display widgets read from the shared `AppState`, so the "Current" column updates live as the slider moves. This only works inside `define_markdown_app!` where `AppState` exists.
-
-![Widgets in table](img/tables_widgets.png)
-
-## How tables render
-
-The macro translates GFM tables into `egui::Grid`:
-
-- The grid ID is auto-generated from the table's position in the document
-- Rows alternate with `grid.striped(true)` for readability
-- Header row cells are rendered bold automatically
-- Each cell is its own layout scope — widgets, formatted text, and plain text all work
-- Cells flow left-to-right, rows top-to-bottom
-
-## Table limitations
-
-A few things to know:
-
-- **No cell merging** — every row must have the same number of columns
-- **No nested tables** — pulldown-cmark doesn't support it, neither does litui
-- **No per-cell styling** — you can use inline markdown but not `::key` style presets on individual cells
-- **Column width** — egui auto-sizes columns based on content; you can't set explicit widths
-
-## Styled text in tables
-
-While `::key` doesn't work on individual cells, inline markdown formatting gives you plenty of control:
-
-```markdown
-| Priority | Task                          |
-|----------|-------------------------------|
-| **HIGH** | Fix crash on startup          |
-| *medium* | Update dependencies           |
-| ~~low~~  | Refactor old module           |
-```
-
-For color, use [inline styled spans](crate::_tutorial::_05_selectors_and_spans) inside cells:
-
-```markdown
-| Status | Message                        |
-|--------|--------------------------------|
-| OK     | ::success(All systems go)   |
-| WARN   | ::warning(Memory high)      |
-| FAIL   | ::danger(Disk failure)      |
-```
-
-## Previous / Next
-
-Previous: [Frontmatter Styles](crate::_tutorial::_02_frontmatter_styles)
-
-Next: [Widgets](crate::_tutorial::_04_widgets) — add sliders, checkboxes, and buttons to your markdown.
+Tables with headers, striped rows, and inline formatting — rendered as egui Grid widgets.

@@ -1,258 +1,93 @@
 # Frontmatter Styles
 
-> Run it: `cargo run -p widgets_example`
+> Run it: `cargo run -p tut_02_styles`
 
-Style your text with YAML frontmatter. Define named presets once, apply them anywhere with `::key`.
+This tutorial adds **YAML frontmatter** to control colors, sizes, and text decoration. Styles are resolved at compile time — zero runtime cost.
 
-## The frontmatter block
+## What's new
 
-A `---` fenced YAML block at the top of your markdown file. The macro strips it before parsing — pulldown-cmark never sees it.
+A `---`-delimited YAML block at the top of the file defines named style presets. Apply them with `::key` suffixes on paragraphs, headings, and list items, or `::key(text)` for inline spans.
 
-```markdown
+## The frontmatter
+
+```yaml
 ---
 styles:
+  title:
+    bold: true
+    color: "#FFD700"
+    size: 28.0
   accent:
     color: "#FF6B00"
     bold: true
-  subtle:
-    color: "#888888"
+  danger:
+    bold: true
+    color: "#FF4444"
+  success:
+    bold: true
+    color: "#00CC66"
+  muted:
     italic: true
-    size: 14.0
+    color: "#888888"
+    weak: true
 ---
-
-# Welcome ::accent
-
-This paragraph gets the accent style. ::accent
-
-A quieter note here. ::subtle
 ```
-
-The `::key` at the end of a heading or paragraph tells the macro to look up that style and apply it. Everything resolves at compile time — no runtime style lookup, no CSS, just baked-in `RichText` method chains.
-
-![Styled text](img/styles_basic.png)
-
-## Style properties
-
-Every property is optional. Only set what you need.
-
-```yaml
-styles:
-  my_style:
-    bold: true           # RichText::strong()
-    italic: true         # RichText::italics()
-    strikethrough: true  # RichText::strikethrough()
-    underline: true      # RichText::underline()
-    color: "#FF6B00"     # text color, hex RGB
-    background: "#2A2A2A" # background highlight color
-    size: 18.0           # font size in points (float)
-    monospace: true      # monospace font
-    weak: true           # dimmed/secondary text
-    # Container/frame properties (CSS box model)
-    inner_margin: 12          # inner margin in pixels (CSS padding)
-    outer_margin: 4       # Frame::outer_margin in pixels (CSS margin)
-    stroke: 1      # border stroke width
-    stroke_color: "#444" # border color, hex RGB
-    corner_radius: 4     # corner radius in pixels
-```
-
-Colors are `#RRGGBB` hex strings. The macro parses them at compile time into `Color32::from_rgb(r, g, b)`.
-
-### Frame containers
-
-Styles with frame properties (`inner_margin`, `stroke`, etc.) wrap content in an `egui::Frame`:
-
-```yaml
-styles:
-  frame:
-    inner_margin: 12
-    background: "#1E1E2E"
-    stroke: 1
-    stroke_color: "#444466"
-    corner_radius: 4
-```
-
-```text
-::: frame frame
-
-This content gets a padded frame container.
-
-:::
-```
-
-The frame properties map to egui's box model: `inner_margin` → `Frame::inner_margin()`,
-`outer_margin` → `Frame::outer_margin()`, `stroke` + `stroke_color` → `Frame::stroke()`,
-`corner_radius` → `Frame::corner_radius()`, `background` → `Frame::fill()`.
-
-Regular text properties (bold, color, size) still apply to the text inside the frame.
 
 ## Applying styles
 
-Put `::key` at the end of the line. It works on:
+```text
+# Hello litui ::title
 
-**Headings:**
+This paragraph has a success style. ::success
 
-```markdown
-# Error Report ::danger
-## Status ::success
+This paragraph warns of danger. ::danger
+
+::accent(This inline span is orange and bold.)
+
+::muted(This text is gray and subtle.)
 ```
 
-Heading styles merge with heading defaults. A `::accent` on an `# H1` keeps the 28pt size unless your style explicitly sets `size`.
+- `::title` after a heading applies the `title` style (gold, bold, 28pt)
+- `::success` after a paragraph applies green bold text
+- `::accent(text)` wraps a specific span in the `accent` style
 
-**Paragraphs:**
+## Style properties
 
-```markdown
-This entire paragraph gets the danger style applied. Every word. ::danger
-```
+| Property | Type | Effect |
+|----------|------|--------|
+| `bold` | bool | Bold weight |
+| `italic` | bool | Italic |
+| `strikethrough` | bool | Strikethrough |
+| `underline` | bool | Underline |
+| `color` | `"#RRGGBB"` or keyword | Text color |
+| `background` | `"#RRGGBB"` or keyword | Background highlight |
+| `size` | float | Font size in points |
+| `monospace` | bool | Monospace font |
+| `weak` | bool | Dimmed text |
 
-The `::key` must be the last thing on the paragraph. The macro strips it from the displayed text.
+## Semantic color keywords
 
-## Composing with inline markdown
-
-Frontmatter styles and inline markdown formatting stack. Bold, italic, code, and strikethrough all work inside a styled paragraph:
-
-```markdown
----
-styles:
-  note:
-    color: "#4488CC"
-    size: 15.0
----
-
-This has **bold** and *italic* words inside a blue paragraph. ::note
-```
-
-The `::note` style sets the base color and size. Inline `**bold**` adds `.strong()` on top. They compose — they don't fight.
-
-## Multiple styles
-
-Define as many as you need:
+Instead of hex, use a keyword to reference egui's built-in theme colors:
 
 ```yaml
 styles:
-  danger:
-    color: "#FF4444"
-    bold: true
-  success:
-    color: "#44BB44"
-  warning:
-    color: "#FFAA00"
-    bold: true
-  code_note:
-    monospace: true
-    color: "#AAAAAA"
-    size: 13.0
+  danger: { color: error, bold: true }     # adapts to dark/light
+  muted: { color: weak, italic: true }     # dimmed in both themes
+  link_style: { color: hyperlink }         # matches egui link color
 ```
 
-```markdown
-# System Status ::success
+Available keywords: `text`, `strong`, `weak`, `hyperlink`, `warn`, `error`, `code_bg`, `faint_bg`, `extreme_bg`, `panel_fill`, `window_fill`, `selection`.
 
-All services operational. ::success
+Hex (`#RRGGBB`) and keywords mix freely. Hex is fixed across themes; keywords adapt automatically.
 
-Memory usage above 90%. ::warning
+## Theme-aware by default
 
-Disk failure on node-3. ::danger
+litui reads heading, text, code, and list-marker colors from egui's current `Visuals` at runtime. Default text (without explicit frontmatter colors) automatically adapts when you switch between dark and light mode. Frontmatter hex overrides like `color: "#FF0000"` are fixed — they look the same in both themes. Use semantic keywords like `color: error` when you want the color to adapt. See [Tutorial 10](_10_advanced_widgets) for how to wire a dark mode toggle and configure global theme colors.
 
-`Check /var/log/syslog for details.` ::code_note
-```
+## Expert tip
 
-## Styled blockquotes and list items
+The macro calls `detect_style_suffix()` at each flush point (end of paragraph, heading, list item). It finds the trailing `::key`, looks it up in the frontmatter `styles` map, and emits a `styled_label_rich()` call with all properties as compile-time literals: `styled_label_rich(ui, "text", true, false, false, false, Some([255, 215, 0]), None, Some(28.0), false, false)`. The hex color `"#FFD700"` becomes `[255, 215, 0]` at compile time — no parsing at runtime.
 
-The `::key` syntax also works on blockquotes and list items. The style's color tints the quote bar or bullet/number:
+## What we built
 
-```markdown
-> All systems operational. ::success
-
-> Disk failure detected. ::danger
-
-- Build passed ::success
-- Tests skipped ::warning
-
-1. Completed ::success
-2. Blocked ::danger
-```
-
-## Undefined keys fail the build
-
-Typo in a style key? The macro panics at compile time with a clear error. `::prommo` when you meant `::promo` won't silently render unstyled — it stops the build. This is intentional.
-
-## Parent inheritance
-
-When using `define_markdown_app!`, you can define shared styles in a parent file:
-
-```rust,ignore
-define_markdown_app! {
-    parent: "content/_app.md",
-    "content/page_one.md",
-    "content/page_two.md",
-}
-```
-
-The parent's `styles:` are inherited by all child pages. Child styles override parent styles on key collision. This keeps your theme in one place.
-
-More on this in [Multi-Page Apps](crate::_tutorial::_07_multi_page_apps).
-
-## What's happening under the hood
-
-The macro:
-
-1. Strips the `---` YAML block with `strip_frontmatter()`
-2. Deserializes into `Frontmatter { styles, widgets, page }`
-3. When it hits `::key` at a flush point, calls `detect_style_suffix()`
-4. Looks up the key in the styles map
-5. Emits a `styled_label_rich()` call with all properties as compile-time literals
-
-A style `{ color: "#FF6B00", bold: true }` becomes `RichText::new(text).color(Color32::from_rgb(255, 107, 0)).strong()` in the generated code. Zero runtime cost.
-
-## Built-in spacing and layout
-
-litui applies sensible spacing defaults so content doesn't look cramped:
-
-- **Paragraph spacing**: 8px gap between paragraphs
-- **Heading top margin**: H1 gets 16px, H2 gets 12px, H3 gets 8px of space above
-- **List indentation**: scales with line height (half line-height per nesting depth)
-- **Blockquote bars**: indented with depth-scaled spacing
-- **Table spacing**: 8px gap after tables
-
-These values are built into the helpers and codegen — no configuration needed for standard layouts. If you need tighter or looser spacing for a specific use case (game stat panels vs. documentation pages), that's a future frontmatter feature.
-
-The key egui concept: `item_spacing` controls the gap between sibling widgets. litui uses `ui.add_space()` for explicit gaps (headings, paragraphs) and `allocate_exact_size()` for structural indentation (bullets, quote bars). All values are proportional to the body text line height where possible, so they scale with font size.
-
-## Dynamic styling at runtime
-
-All styles shown above are compile-time — the color is baked into the generated code. For styles that change based on game state (HP color, threat level), use dynamic styling.
-
-### ::: style block
-
-Wrap content in a `::: style` fence. The style name is read from AppState at runtime:
-
-```text
-::: style hp_style
-
-**HP:** [display](hp_text)
-**MP:** [display](mp_text)
-
-:::
-```
-
-State: `hp_style: String` — set to a frontmatter style name each frame:
-```rust,ignore
-state.hp_style = if hp_pct > 0.5 { "hp_good" } else { "hp_danger" }.into();
-```
-
-The macro generates a compile-time lookup table from your frontmatter styles. At runtime, it resolves the name and applies `ui.visuals_mut().override_text_color`. Content outside the block is unaffected.
-
-Style blocks nest — inner blocks override outer.
-
-### How it works
-
-1. You define styles in YAML as usual (`hp_good`, `hp_danger`, etc.)
-2. The macro generates a `__resolve_style_color()` match table at compile time
-3. At runtime, `state.hp_style` is matched against the table
-4. The resolved color is applied via `ui.visuals_mut().override_text_color`
-5. Only `color` is dynamically applied — bold, size, etc. remain compile-time
-
-This is egui's native pattern for scoped style changes.
-
-## Next up
-
-[Tables](crate::_tutorial::_03_tables) — render data grids with GFM table syntax.
+Styled markdown with named color presets, all resolved at compile time.

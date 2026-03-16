@@ -7,8 +7,8 @@ rust-version.workspace = true
 description = "Literate UI for egui — write Markdown, compile to native widgets."
 
 [dependencies]
-markdown_to_egui_macro = { path = "../markdown_to_egui_macro" }
-markdown_to_egui_helpers = { path = "../markdown_to_egui_helpers" }
+litui_macro = { path = "../litui_macro" }
+litui_helpers = { path = "../litui_helpers" }
 
 [dev-dependencies]
 egui = "0.33"

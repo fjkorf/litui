@@ -5,10 +5,10 @@
 use snapshot_tests::snapshot_markdown;
 
 mod app {
-    use markdown_to_egui_helpers::*;
-    use markdown_to_egui_macro::define_markdown_app;
+    use litui_helpers::*;
+    use litui_macro::define_litui_app;
 
-    define_markdown_app! {
+    define_litui_app! {
         parent: "fixtures/parent_with_body.md",
         "fixtures/child_page.md",
     }
