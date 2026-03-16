@@ -380,6 +380,64 @@ pub fn emit_numbered_prefix_colored(
     ui.allocate_exact_size(vec2(one_indent / 2.0, row_height), Sense::hover());
 }
 
+/// Emit a task list checkbox prefix with depth-based indentation.
+///
+/// Renders a non-interactive checkbox (checked or unchecked) as the list item prefix,
+/// matching the GFM `- [x]` / `- [ ]` task list syntax.
+pub fn emit_task_checkbox(
+    ui: &mut Ui,
+    depth: usize,
+    checked: bool,
+    color_override: Option<[u8; 3]>,
+) {
+    let row_height = ui.text_style_height(&TextStyle::Body);
+    let one_indent = row_height / 2.0;
+    let indent = one_indent * depth as f32;
+    ui.allocate_exact_size(vec2(indent, row_height), Sense::hover());
+
+    let box_size = row_height * 0.75;
+    let (rect, _) = ui.allocate_exact_size(vec2(box_size, row_height), Sense::hover());
+    let box_rect = eframe::egui::Rect::from_center_size(
+        rect.center(),
+        vec2(box_size, box_size),
+    );
+
+    let color = match color_override {
+        Some([r, g, b]) => eframe::egui::Color32::from_rgb(r, g, b),
+        None => ui.visuals().strong_text_color(),
+    };
+
+    let rounding = box_size * 0.15;
+    ui.painter().rect_stroke(
+        box_rect,
+        rounding,
+        eframe::egui::Stroke::new(1.5, color),
+        eframe::egui::StrokeKind::Inside,
+    );
+
+    if checked {
+        // Draw a checkmark
+        let margin = box_size * 0.2;
+        let left = box_rect.left() + margin;
+        let right = box_rect.right() - margin;
+        let top = box_rect.top() + margin;
+        let bottom = box_rect.bottom() - margin;
+        let mid_x = left + (right - left) * 0.35;
+        let mid_y = bottom;
+        let points = vec![
+            eframe::egui::pos2(left, top + (bottom - top) * 0.5),
+            eframe::egui::pos2(mid_x, mid_y),
+            eframe::egui::pos2(right, top),
+        ];
+        ui.painter().add(eframe::egui::Shape::line(
+            points,
+            eframe::egui::Stroke::new(1.5, color),
+        ));
+    }
+
+    ui.allocate_exact_size(vec2(one_indent, row_height), Sense::hover());
+}
+
 // ── Toggle switch widget ─────────────────────────────────────────────
 // iOS-style toggle, adapted from egui's demo widget_gallery.
 

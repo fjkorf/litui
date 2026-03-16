@@ -55,6 +55,14 @@ fn widgets_in_table() {
 }
 
 #[test]
+fn task_list() {
+    snapshot_markdown(
+        "task_list",
+        include_markdown_ui!("fixtures/task_list.md"),
+    );
+}
+
+#[test]
 fn stateful() {
     // Macro returns (render_fn, default_state) tuple for stateful markdown
     let (render, mut state) = include_markdown_ui!("fixtures/stateful.md");

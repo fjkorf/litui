@@ -77,6 +77,7 @@ Step-by-step guides are built into the docs. Run `cargo doc -p litui --open` and
 | Feature | How it works |
 |---------|-------------|
 | **Headings, paragraphs, lists** | Standard Markdown rendered as egui widgets |
+| **Task list checkboxes** | GFM `- [x]` / `- [ ]` rendered as non-interactive checkboxes |
 | **Bold, italic, strikethrough** | Composable inline formatting |
 | **Tables (GFM)** | `egui::Grid` with bold headers and striped rows |
 | **Code blocks + inline code** | Monospace rendering with background |

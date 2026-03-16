@@ -51,6 +51,25 @@ Start(Item)
 End(Item)                    <- parent closes AFTER nested list
 ```
 
+## Task Lists (GFM)
+
+Requires `Options::ENABLE_TASKLISTS`. Task list items emit a `TaskListMarker(bool)` event immediately after `Start(Item)` (tight) or after `Start(Paragraph)` (loose):
+
+```
+Start(List(None))
+  Start(Item)
+    TaskListMarker(true)        <- checked: - [x]
+    Text("done task")
+  End(Item)
+  Start(Item)
+    TaskListMarker(false)       <- unchecked: - [ ]
+    Text("pending task")
+  End(Item)
+End(List(None))
+```
+
+The marker appears before any text. The macro captures it in a `task_list_checked: Option<bool>` state variable, which is passed to `emit_list_item()` and consumed (via `.take()`) when the item is flushed. This replaces the bullet/number prefix with a checkbox drawn by `emit_task_checkbox()`.
+
 ## Blockquote Nesting
 
 Each `>` level produces nested `Start(BlockQuote)` events, not sequential ones:

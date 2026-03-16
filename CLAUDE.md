@@ -120,6 +120,5 @@ python3 scripts/generate-doc-markdown.py                   # regenerate knowledg
 ## Not Yet Implemented
 
 - Widget layout control (inline vs block)
-- Task list checkboxes
 - Footnotes
 - HTML passthrough

@@ -266,6 +266,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
     let mut options = Options::empty();
     options.insert(Options::ENABLE_STRIKETHROUGH);
     options.insert(Options::ENABLE_TABLES);
+    options.insert(Options::ENABLE_TASKLISTS);
     let events: Vec<Event<'_>> = pulldown_cmark::Parser::new_ext(content, options).collect();
 
     // Compile-time state
@@ -281,6 +282,8 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
 
     // List tracking: None = unordered, Some(next_number) = ordered
     let mut list_stack: Vec<Option<usize>> = Vec::new();
+    // Task list checkbox: Some(true) = checked, Some(false) = unchecked, None = not a task item
+    let mut task_list_checked: Option<bool> = None;
 
     // Table accumulation state
     let mut in_table = false;
@@ -473,16 +476,18 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
         fragments.clear();
     }
 
-    /// Emit accumulated fragments as a list item (bullet or numbered).
+    /// Emit accumulated fragments as a list item (bullet, numbered, or task checkbox).
     /// Each item is a separate top-level `ui.horizontal_wrapped(...)`.
     /// If the last fragment ends with `::key`, the style's color is applied to the
     /// bullet/number prefix and all text fragments get the full style treatment.
+    /// If `task_checked` is `Some`, a checkbox prefix is emitted instead of bullet/number.
     fn emit_list_item(
         fragments: &mut Vec<Fragment>,
         code_body: &mut Vec<proc_macro2::TokenStream>,
         list_stack: &mut [Option<usize>],
         blockquote_depth: usize,
         frontmatter: &Frontmatter,
+        task_checked: Option<bool>,
     ) {
         if fragments.is_empty() {
             return;
@@ -571,16 +576,20 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
         };
 
         // Build the prefix + content as one horizontal row
-        let prefix = match list_stack.last_mut() {
-            Some(Some(n)) => {
-                let num_str = n.to_string();
-                *n += 1;
-                quote! { emit_numbered_prefix_colored(ui, #depth, #num_str, #prefix_color_tokens); }
+        let prefix = if let Some(checked) = task_checked {
+            quote! { emit_task_checkbox(ui, #depth, #checked, #prefix_color_tokens); }
+        } else {
+            match list_stack.last_mut() {
+                Some(Some(n)) => {
+                    let num_str = n.to_string();
+                    *n += 1;
+                    quote! { emit_numbered_prefix_colored(ui, #depth, #num_str, #prefix_color_tokens); }
+                }
+                Some(None) => {
+                    quote! { emit_bullet_prefix_colored(ui, #depth, #prefix_color_tokens); }
+                }
+                None => quote! {},
             }
-            Some(None) => {
-                quote! { emit_bullet_prefix_colored(ui, #depth, #prefix_color_tokens); }
-            }
-            None => quote! {},
         };
 
         if blockquote_depth > 0 {
@@ -843,6 +852,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                             &mut list_stack,
                             blockquote_depth,
                             frontmatter,
+                            task_list_checked.take(),
                         );
                     }
                     list_stack.push(start.map(|n| n as usize));
@@ -964,6 +974,7 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                             &mut list_stack,
                             blockquote_depth,
                             frontmatter,
+                            task_list_checked.take(),
                         );
                     } else {
                         // Standalone paragraph
@@ -1045,8 +1056,10 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
                             &mut list_stack,
                             blockquote_depth,
                             frontmatter,
+                            task_list_checked.take(),
                         );
                     }
+                    task_list_checked = None;
                 }
                 Tag::Emphasis => {
                     flush_pending(
@@ -1956,7 +1969,10 @@ pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> Pars
             Event::Rule => {
                 code_body.push(quote! { separator(ui); });
             }
-            Event::Html(_) | Event::FootnoteReference(_) | Event::TaskListMarker(_) => {}
+            Event::TaskListMarker(checked) => {
+                task_list_checked = Some(*checked);
+            }
+            Event::Html(_) | Event::FootnoteReference(_) => {}
         }
         event_idx += 1;
     }
