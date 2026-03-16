@@ -1,0 +1,15 @@
+[package]
+name = "game_demo"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+eframe = "0.33"
+egui = "0.33"
+litui = { path = "../../crates/litui" }
+
+[lints]
+workspace = true
