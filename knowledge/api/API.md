@@ -284,7 +284,7 @@ widget references, and generates:
 - Per-page `render_{snake_name}()` functions
 - `LituiApp` struct with `show_nav()` and `show_page()`
 
-#### `show_all` (line 872)
+#### `show_all` (line 891)
 
 ```rust
             pub fn show_all(&mut self, ctx: &egui::Context)
@@ -292,9 +292,10 @@ widget references, and generates:
 
 Render all pages in their designated containers.
 Side panels are always visible. Windows appear for the current page.
-Central panel pages use standard page dispatch.
+If any pages lack a `panel:` directive, a central panel dispatches them.
+When all pages have explicit panels, no central panel is emitted.
 
-#### `generate_theme_setup` (line 980)
+#### `generate_theme_setup` (line 991)
 
 ```rust
 fn generate_theme_setup(theme: &Option<ThemeDef>) -> Option<proc_macro2::TokenStream>

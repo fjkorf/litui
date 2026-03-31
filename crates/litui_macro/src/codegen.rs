@@ -864,11 +864,30 @@ pub(crate) fn define_litui_app_impl(
         },
     };
 
+    let central_panel_code = if central_dispatch.is_empty() {
+        // No central pages — skip CentralPanel entirely so the host
+        // renderer (e.g. Bevy 3D viewport) shows through.
+        quote! {}
+    } else {
+        quote! {
+            // Central panel (current page if it's a central page)
+            egui::CentralPanel::default().show(ctx, |ui| {
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    match self.current_page {
+                        #(#central_dispatch)*
+                        _ => {} // Non-central pages handled above
+                    }
+                });
+            });
+        }
+    };
+
     let show_all_method = if has_containers {
         quote! {
             /// Render all pages in their designated containers.
             /// Side panels are always visible. Windows appear for the current page.
-            /// Central panel pages use standard page dispatch.
+            /// If any pages lack a `panel:` directive, a central panel dispatches them.
+            /// When all pages have explicit panels, no central panel is emitted.
             pub fn show_all(&mut self, ctx: &egui::Context) {
                 #theme_call
 
@@ -881,15 +900,7 @@ pub(crate) fn define_litui_app_impl(
                 // Navigation
                 #nav_panel_code
 
-                // Central panel (current page if it's a central page)
-                egui::CentralPanel::default().show(ctx, |ui| {
-                    egui::ScrollArea::vertical().show(ui, |ui| {
-                        match self.current_page {
-                            #(#central_dispatch)*
-                            _ => {} // Non-central pages handled above
-                        }
-                    });
-                });
+                #central_panel_code
 
                 // Windows (shown when current page matches)
                 #(#window_code)*
