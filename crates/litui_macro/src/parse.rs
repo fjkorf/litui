@@ -57,12 +57,18 @@ pub(crate) enum RowField {
     Display(String),
     /// Widget inside foreach — typed, interactive.
     Widget { name: String, ty: WidgetType },
+    /// Nested foreach — generates a child row struct + `Vec<ChildRow>`.
+    Foreach {
+        name: String,
+        row_fields: Vec<RowField>,
+        is_tree: bool,
+    },
 }
 
 impl RowField {
     pub fn name(&self) -> &str {
         match self {
-            Self::Display(n) | Self::Widget { name: n, .. } => n,
+            Self::Display(n) | Self::Widget { name: n, .. } | Self::Foreach { name: n, .. } => n,
         }
     }
 }
@@ -77,6 +83,7 @@ pub(crate) enum WidgetField {
     Foreach {
         name: String,
         row_fields: Vec<RowField>,
+        is_tree: bool,
     },
 }
 

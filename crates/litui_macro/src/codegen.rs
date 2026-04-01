@@ -17,6 +17,108 @@ use litui_parser::frontmatter::{
     Frontmatter, PageDef, ThemeDef, ThemeOverrides, capitalize_first, parse_hex_color,
 };
 
+/// Generate a `.frame(...)` call for a panel/window background.
+/// Returns empty tokens if no background is set.
+fn panel_frame_tokens(background: &Option<String>) -> proc_macro2::TokenStream {
+    match background.as_deref() {
+        Some("transparent") => {
+            quote! { .frame(egui::Frame::NONE.fill(egui::Color32::TRANSPARENT)) }
+        }
+        Some(hex) if hex.starts_with('#') => {
+            let hex_digits = hex.trim_start_matches('#');
+            match hex_digits.len() {
+                6 => {
+                    if let Ok([r, g, b]) = parse_hex_color(hex) {
+                        quote! { .frame(egui::Frame::NONE.fill(egui::Color32::from_rgb(#r, #g, #b))) }
+                    } else {
+                        quote! {}
+                    }
+                }
+                8 => {
+                    let r = u8::from_str_radix(&hex_digits[0..2], 16).unwrap_or(0);
+                    let g = u8::from_str_radix(&hex_digits[2..4], 16).unwrap_or(0);
+                    let b = u8::from_str_radix(&hex_digits[4..6], 16).unwrap_or(0);
+                    let a = u8::from_str_radix(&hex_digits[6..8], 16).unwrap_or(255);
+                    quote! { .frame(egui::Frame::NONE.fill(egui::Color32::from_rgba_unmultiplied(#r, #g, #b, #a))) }
+                }
+                _ => quote! {},
+            }
+        }
+        _ => quote! {},
+    }
+}
+
+/// Recursively generate a row struct from row fields.
+/// Returns the struct TokenStream and its Ident. Nested `RowField::Foreach` entries
+/// produce child structs appended to `extra_structs`.
+fn generate_row_struct(
+    struct_name: &str,
+    row_fields: &[RowField],
+    is_tree: bool,
+    extra_structs: &mut Vec<proc_macro2::TokenStream>,
+) -> (proc_macro2::TokenStream, syn::Ident) {
+    let span = proc_macro2::Span::call_site();
+    let struct_ident = syn::Ident::new(struct_name, span);
+
+    let mut field_defs: Vec<proc_macro2::TokenStream> = Vec::new();
+    let mut field_defaults: Vec<proc_macro2::TokenStream> = Vec::new();
+
+    for rf in row_fields {
+        let rf_ident = syn::Ident::new(rf.name(), span);
+        match rf {
+            RowField::Display(_) => {
+                field_defs.push(quote! { pub #rf_ident: String });
+                field_defaults.push(quote! { #rf_ident: String::new() });
+            }
+            RowField::Widget { ty, .. } => {
+                let ty_tokens = ty.to_tokens();
+                let default_tokens = ty.default_tokens();
+                field_defs.push(quote! { pub #rf_ident: #ty_tokens });
+                field_defaults.push(quote! { #rf_ident: #default_tokens });
+            }
+            RowField::Foreach {
+                name: inner_name,
+                row_fields: inner_fields,
+                is_tree: inner_tree,
+            } => {
+                let inner_struct_name = format!("{}Row", capitalize_first(inner_name));
+                let inner_struct_ident = syn::Ident::new(&inner_struct_name, span);
+                let (inner_struct, _) = generate_row_struct(
+                    &inner_struct_name,
+                    inner_fields,
+                    *inner_tree,
+                    extra_structs,
+                );
+                extra_structs.push(inner_struct);
+                field_defs.push(quote! { pub #rf_ident: Vec<#inner_struct_ident> });
+                field_defaults.push(quote! { #rf_ident: Vec::new() });
+            }
+        }
+    }
+
+    if is_tree {
+        field_defs.push(quote! { pub children: Vec<#struct_ident> });
+        field_defaults.push(quote! { children: Vec::new() });
+    }
+
+    let row_struct = quote! {
+        #[derive(Clone, Debug)]
+        #[allow(non_camel_case_types)]
+        pub struct #struct_ident {
+            #(#field_defs,)*
+        }
+        impl Default for #struct_ident {
+            fn default() -> Self {
+                Self {
+                    #(#field_defaults,)*
+                }
+            }
+        }
+    };
+
+    (row_struct, struct_ident)
+}
+
 /// Generate field definition tokens for a `WidgetField`, handling foreach row structs.
 /// Returns (`field_def`, `field_default`, `optional_row_struct`).
 fn widget_field_tokens(
@@ -37,58 +139,27 @@ fn widget_field_tokens(
                 None,
             )
         }
-        WidgetField::Foreach { name, row_fields } => {
+        WidgetField::Foreach {
+            name,
+            row_fields,
+            is_tree,
+        } => {
             let ident = syn::Ident::new(name, proc_macro2::Span::call_site());
             let struct_name = format!("{}Row", capitalize_first(name));
             let struct_ident = syn::Ident::new(&struct_name, proc_macro2::Span::call_site());
 
-            let row_field_defs: Vec<proc_macro2::TokenStream> = row_fields
-                .iter()
-                .map(|rf| {
-                    let rf_ident = syn::Ident::new(rf.name(), proc_macro2::Span::call_site());
-                    match rf {
-                        RowField::Display(_) => quote! { pub #rf_ident: String },
-                        RowField::Widget { ty, .. } => {
-                            let ty_tokens = ty.to_tokens();
-                            quote! { pub #rf_ident: #ty_tokens }
-                        }
-                    }
-                })
-                .collect();
+            let mut extra_structs: Vec<proc_macro2::TokenStream> = Vec::new();
+            let (row_struct, _) =
+                generate_row_struct(&struct_name, row_fields, *is_tree, &mut extra_structs);
 
-            let row_field_defaults: Vec<proc_macro2::TokenStream> = row_fields
-                .iter()
-                .map(|rf| {
-                    let rf_ident = syn::Ident::new(rf.name(), proc_macro2::Span::call_site());
-                    match rf {
-                        RowField::Display(_) => quote! { #rf_ident: String::new() },
-                        RowField::Widget { ty, .. } => {
-                            let default_tokens = ty.default_tokens();
-                            quote! { #rf_ident: #default_tokens }
-                        }
-                    }
-                })
-                .collect();
-
-            let row_struct = quote! {
-                #[derive(Clone, Debug)]
-                #[allow(non_camel_case_types)]
-                pub struct #struct_ident {
-                    #(#row_field_defs,)*
-                }
-                impl Default for #struct_ident {
-                    fn default() -> Self {
-                        Self {
-                            #(#row_field_defaults,)*
-                        }
-                    }
-                }
-            };
+            let mut all_structs = extra_structs;
+            all_structs.push(row_struct);
+            let combined = quote! { #(#all_structs)* };
 
             (
                 quote! { pub #ident: Vec<#struct_ident> },
                 quote! { #ident: Vec::new() },
-                Some(row_struct),
+                Some(combined),
             )
         }
     }
@@ -565,6 +636,7 @@ pub(crate) fn define_litui_app_impl(
         height: Option<f32>,
         has_mutable_widgets: bool,
         open: Option<String>,
+        background: Option<String>,
     }
     let mut page_containers: Vec<PageContainer> = Vec::new();
 
@@ -639,6 +711,7 @@ pub(crate) fn define_litui_app_impl(
             height: page_info.page_def.height,
             has_mutable_widgets,
             open: page_info.page_def.open.clone(),
+            background: page_info.page_def.background.clone(),
         });
     }
 
@@ -674,6 +747,8 @@ pub(crate) fn define_litui_app_impl(
             quote! { #render_fn(ui) }
         };
 
+        let frame_call = panel_frame_tokens(&pc.background);
+
         match pc.panel.as_deref() {
             Some("left") => {
                 let snake = to_snake_case(&pc.variant.to_string());
@@ -686,6 +761,7 @@ pub(crate) fn define_litui_app_impl(
                             if self.state.#open_ident {
                                 egui::SidePanel::left(#id_str)
                                     .default_width(#width)
+                                    #frame_call
                                     .show(ctx, |ui| {
                                         egui::ScrollArea::vertical().show(ui, |ui| {
                                             #render_call;
@@ -698,6 +774,7 @@ pub(crate) fn define_litui_app_impl(
                     side_panel_code.push(quote! {
                         egui::SidePanel::left(#id_str)
                             .default_width(#width)
+                            #frame_call
                             .show(ctx, |ui| {
                                 egui::ScrollArea::vertical().show(ui, |ui| {
                                     #render_call;
@@ -717,6 +794,7 @@ pub(crate) fn define_litui_app_impl(
                             if self.state.#open_ident {
                                 egui::SidePanel::right(#id_str)
                                     .default_width(#width)
+                                    #frame_call
                                     .show(ctx, |ui| {
                                         egui::ScrollArea::vertical().show(ui, |ui| {
                                             #render_call;
@@ -729,6 +807,7 @@ pub(crate) fn define_litui_app_impl(
                     side_panel_code.push(quote! {
                         egui::SidePanel::right(#id_str)
                             .default_width(#width)
+                            #frame_call
                             .show(ctx, |ui| {
                                 egui::ScrollArea::vertical().show(ui, |ui| {
                                     #render_call;
@@ -748,6 +827,7 @@ pub(crate) fn define_litui_app_impl(
                             if self.state.#open_ident {
                                 egui::TopBottomPanel::top(#id_str)
                                     .default_height(#height)
+                                    #frame_call
                                     .show(ctx, |ui| {
                                         #render_call;
                                     });
@@ -758,6 +838,7 @@ pub(crate) fn define_litui_app_impl(
                     top_bottom_panel_code.push(quote! {
                         egui::TopBottomPanel::top(#id_str)
                             .default_height(#height)
+                            #frame_call
                             .show(ctx, |ui| {
                                 #render_call;
                             });
@@ -775,6 +856,7 @@ pub(crate) fn define_litui_app_impl(
                             if self.state.#open_ident {
                                 egui::TopBottomPanel::bottom(#id_str)
                                     .default_height(#height)
+                                    #frame_call
                                     .show(ctx, |ui| {
                                         #render_call;
                                     });
@@ -785,6 +867,7 @@ pub(crate) fn define_litui_app_impl(
                     top_bottom_panel_code.push(quote! {
                         egui::TopBottomPanel::bottom(#id_str)
                             .default_height(#height)
+                            #frame_call
                             .show(ctx, |ui| {
                                 #render_call;
                             });
@@ -795,14 +878,13 @@ pub(crate) fn define_litui_app_impl(
                 let label = variant.to_string();
                 let width = pc.width.unwrap_or(350.0);
                 if let Some(ref open_field) = pc.open {
-                    // State-driven window: visibility controlled by a bool field on AppState.
-                    // Extract the bool into a local to avoid simultaneous borrows of self.state.
                     let open_ident = syn::Ident::new(open_field, proc_macro2::Span::call_site());
                     window_code.push(quote! {
                         {
                             let mut __open = self.state.#open_ident;
                             egui::Window::new(#label)
                                 .default_width(#width)
+                                #frame_call
                                 .open(&mut __open)
                                 .show(ctx, |ui| {
                                     egui::ScrollArea::vertical().show(ui, |ui| {
@@ -813,11 +895,11 @@ pub(crate) fn define_litui_app_impl(
                         }
                     });
                 } else {
-                    // Page-driven window: visible when navigated to
                     window_code.push(quote! {
                         if self.current_page == Page::#variant {
                             egui::Window::new(#label)
                                 .default_width(#width)
+                                #frame_call
                                 .show(ctx, |ui| {
                                     egui::ScrollArea::vertical().show(ui, |ui| {
                                         #render_call;

@@ -279,6 +279,125 @@ State: `hp_style: String` — set to a frontmatter style name at runtime. The ma
 
 Style blocks nest — inner overrides outer.
 
+## Collapsing Header (`::: collapsing`)
+
+Wraps content in `egui::CollapsingHeader` — a clickable header that toggles a collapsible body.
+
+### Syntax
+
+```markdown
+::: collapsing "Section Title"
+
+Hidden content, widgets, tables, etc.
+
+:::
+```
+
+### Title forms
+
+| Form | Example | Description |
+|------|---------|-------------|
+| Quoted string | `::: collapsing "Details"` | Static title text |
+| Unquoted word | `::: collapsing Details` | Single-word static title |
+| Field reference | `::: collapsing {name}` | Title from `state.name` or `__row.name` in foreach |
+
+### State tracking (optional)
+
+Append `{bool_field}` to track open/closed state in `AppState`:
+
+```markdown
+::: collapsing "Advanced" {show_advanced}
+
+Content here.
+
+:::
+```
+
+Auto-declares `show_advanced: bool` on `AppState` (default `false`). Enables bidirectional sync — the app can programmatically open/close the section, and user clicks update the field.
+
+Field title + state tracking also works:
+
+```markdown
+::: collapsing {bone_name} {bone_open}
+```
+
+### Generated code
+
+**Without state tracking** — egui manages open/close internally:
+
+```rust
+egui::CollapsingHeader::new("Section Title")
+    .id_salt("litui_collapsing_0")
+    .default_open(false)
+    .show(ui, |ui| {
+        // body content
+    });
+```
+
+**With state tracking** — bidirectional sync via `CollapsingState`. Uses `show_toggle_button` + `show_body_indented` (both `&mut self`) instead of `show_header` (which consumes `self`):
+
+```rust
+{
+    let __collapsing_id = ui.make_persistent_id("litui_collapsing_0");
+    let mut __cs = egui::collapsing_header::CollapsingState::load_with_default_open(
+        ui.ctx(), __collapsing_id, state.show_advanced,
+    );
+    if state.show_advanced != __cs.is_open() {
+        __cs.set_open(state.show_advanced);
+    }
+    let __toggle = ui.horizontal(|ui| {
+        let __btn = __cs.show_toggle_button(ui, paint_default_icon);
+        ui.label("Advanced");
+        __btn
+    });
+    __cs.show_body_indented(&__toggle.inner, ui, |ui| {
+        // body content
+    });
+    state.show_advanced = __cs.is_open();
+}
+```
+
+### Nesting
+
+Collapsing inside collapsing works — each gets a unique `id_salt` from its `collapsing_index`:
+
+```markdown
+::: collapsing "Outer"
+
+::: collapsing "Inner"
+
+Deeply nested content.
+
+:::
+
+:::
+```
+
+### In foreach
+
+Use field references for per-row titles. The title field value provides natural ID uniqueness:
+
+```markdown
+::: foreach bones
+
+::: collapsing {name}
+
+| Property | Value |
+|----------|-------|
+| {length} | {weight} |
+
+:::
+
+:::
+```
+
+### Key details
+
+- Default state: always starts collapsed (`default_open: false`)
+- ID stability: each collapsing instance gets `litui_collapsing_N` salt (N is parse order)
+- All litui content works inside the body: widgets, tables, lists, nested directives
+- In foreach context, `{field}` references in the title resolve to `__row.field`
+
 ## Container Directives
 
 Pages can specify their egui container via `panel:` in frontmatter:
@@ -292,6 +411,20 @@ page:
 ```
 
 Panel values: `left`, `right`, `top`, `bottom`, `window`. Omit for central panel (default).
+
+Optional `background` field sets the panel/window frame fill:
+
+```yaml
+page:
+  name: Shapes
+  panel: left
+  width: 220
+  background: transparent           # fully transparent
+  # background: "#1A1A2E"           # opaque hex
+  # background: "#1A1A2E80"         # semi-transparent (RRGGBBAA)
+```
+
+When set, emits `.frame(Frame::NONE.fill(...))` on the container. Useful for Bevy apps where the 3D viewport should show through panels.
 
 When any page has `panel:`, `LituiApp` gains `show_all(&egui::Context)`:
 - Side panels are always visible (persist across page switches), unless gated by `open:`
@@ -360,6 +493,42 @@ widgets:
 ```
 
 These map directly to egui's `Slider::suffix()` and `Slider::prefix()` methods.
+
+## Slider Integer Mode, Step, and Decimals
+
+Additional slider config options for numeric precision:
+
+```yaml
+widgets:
+  octaves: { min: 0, max: 6, integer: true, label: "Octaves" }
+  rotation: { min: -180, max: 180, step: 5.0, suffix: "°", label: "Rotation" }
+  smooth_k: { min: 0.0, max: 0.1, decimals: 3, label: "Smooth K" }
+```
+
+| Field | egui method | Description |
+|-------|------------|-------------|
+| `integer: true` | `.integer()` | Snaps to whole numbers (sets `fixed_decimals(0)`, `smallest_positive(1.0)`, `step_by(1.0)`) |
+| `step: 5.0` | `.step_by(5.0)` | Quantize to discrete steps |
+| `decimals: 3` | `.fixed_decimals(3)` | Fixed decimal places in display |
+
+## DragValue Enhanced Config
+
+DragValue now supports range clamping, suffix/prefix, and decimal control:
+
+```yaml
+widgets:
+  roughness: { min: 0.0, max: 1.0, speed: 0.01, label: "Roughness" }
+  angle: { speed: 0.5, suffix: "°", decimals: 1 }
+  precise: { speed: 0.001, decimals: 4 }
+```
+
+| Field | egui method | Description |
+|-------|------------|-------------|
+| `min`/`max` | `.range(min..=max)` | Clamp drag range (both optional, one-sided supported) |
+| `suffix` | `.suffix("°")` | Appended to display |
+| `prefix` | `.prefix("$")` | Prepended to display |
+| `decimals` | `.fixed_decimals(N)` | Fixed decimal places |
+| `speed` | `.speed(0.1)` | Drag sensitivity (default 0.1) |
 
 ## Select (Runtime Selectable List)
 
@@ -468,6 +637,93 @@ let mut row = ItemsRow::default();
 row.name = "Health Potion".into();
 state.items.push(row);
 ```
+
+### Tree mode (`foreach ... children`)
+
+Add `children` after the field name to render a recursive tree:
+
+```markdown
+::: foreach bones children
+
+::: collapsing {name}
+
+{description}
+
+:::
+
+:::
+```
+
+This generates a row struct with `children: Vec<Self>`:
+
+```rust
+pub struct BonesRow {
+    pub name: String,
+    pub description: String,
+    pub children: Vec<BonesRow>,
+}
+```
+
+The body renders recursively — for each node, the body is rendered, then `row.children` is rendered with the same template. A `__tree_depth: usize` variable is available in the generated code (0 = root level).
+
+Populate from code:
+
+```rust
+let mut arm = BonesRow::default();
+arm.name = "Arm".into();
+arm.children.push(BonesRow {
+    name: "Hand".into(),
+    ..Default::default()
+});
+state.bones.push(arm);
+```
+
+**Key details:**
+- `::: collapsing {name}` inside tree foreach gets dynamic ID salts (depth + pointer) to avoid collisions
+- `::: collapsing {name} {is_open}` works inside foreach — `is_open: bool` is added to the row struct, not AppState
+- All standard body content works: text, tables, widgets, nested collapsing
+
+### Inner foreach (nested collections)
+
+A foreach inside another foreach iterates a `Vec` on the parent row struct:
+
+```markdown
+::: foreach bones children
+
+::: collapsing {name} {is_open}
+
+::: foreach shapes
+
+| {shape_name} | {shape_type} |
+|---|---|
+
+:::
+
+:::
+
+:::
+```
+
+This generates nested row structs:
+
+```rust
+pub struct BonesRow {
+    pub name: String,
+    pub is_open: bool,          // from collapsing {is_open}
+    pub shapes: Vec<ShapesRow>, // from inner foreach
+    pub children: Vec<BonesRow>,
+}
+pub struct ShapesRow {
+    pub shape_name: String,
+    pub shape_type: String,
+}
+```
+
+The inner foreach uses `__row.shapes` as its collection source (Rust's lexical scoping with shadowing handles the variable binding naturally). All standard foreach features work inside: `{field}` references, widgets, tables.
+
+**Constraints:**
+- Tree foreach (`::: foreach X children`) cannot be nested inside another foreach
+- Regular (non-tree) inner foreach nests to arbitrary depth via shadowing
 
 ### Key constraints
 

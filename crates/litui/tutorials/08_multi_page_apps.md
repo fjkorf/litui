@@ -94,6 +94,20 @@ This auto-declares `show_log: bool` on `AppState` (default `false`). For windows
 
 `open:` works on all panel types: `left`, `right`, `top`, `bottom`, and `window`.
 
+## Panel backgrounds
+
+Set a custom background color on any panel or window:
+
+```yaml
+page:
+  name: Shapes
+  panel: left
+  width: 220
+  background: transparent
+```
+
+Supports `transparent`, hex colors (`"#1A1A2E"`), and 8-digit hex with alpha (`"#1A1A2E80"` for semi-transparent). When all panels are transparent and there are no central pages, `show_all()` skips the `CentralPanel` entirely — useful for Bevy apps where the 3D viewport fills the background.
+
 ## Navigation control
 
 By default, only central pages (no `panel:`) appear in `show_nav()`. Panel and window pages are excluded. Override with `navigable:`:

@@ -130,7 +130,7 @@ token output that `codegen.rs` consumes.
 
 ### Structs
 
-#### `ParsedMarkdown` (line 104)
+#### `ParsedMarkdown` (line 111)
 
 ```rust
 pub(crate) struct ParsedMarkdown {
@@ -179,12 +179,18 @@ pub(crate) enum RowField {
     Display(String),
     /// Widget inside foreach — typed, interactive.
     Widget { name: String, ty: WidgetType },
+    /// Nested foreach — generates a child row struct + `Vec<ChildRow>`.
+    Foreach {
+        name: String,
+        row_fields: Vec<RowField>,
+        is_tree: bool,
+    },
 }
 ```
 
 A field inside a foreach row struct (bridge type for codegen).
 
-#### `WidgetField` (line 73)
+#### `WidgetField` (line 79)
 
 ```rust
 pub(crate) enum WidgetField {
@@ -194,6 +200,7 @@ pub(crate) enum WidgetField {
     Foreach {
         name: String,
         row_fields: Vec<RowField>,
+        is_tree: bool,
     },
 }
 ```
@@ -216,7 +223,7 @@ and a `LituiApp` struct with `show_nav()` and `show_page()` methods.
 
 ### Structs
 
-#### `AppInput` (line 183)
+#### `AppInput` (line 254)
 
 ```rust
 struct AppInput {
@@ -230,7 +237,31 @@ by comma-separated page file paths.
 
 ### Functions
 
-#### `widget_field_tokens` (line 22)
+#### `panel_frame_tokens` (line 22)
+
+```rust
+fn panel_frame_tokens(background: &Option<String>) -> proc_macro2::TokenStream
+```
+
+Generate a `.frame(...)` call for a panel/window background.
+Returns empty tokens if no background is set.
+
+#### `generate_row_struct` (line 54)
+
+```rust
+fn generate_row_struct(
+    struct_name: &str,
+    row_fields: &[RowField],
+    is_tree: bool,
+    extra_structs: &mut Vec<proc_macro2::TokenStream>,
+) -> (proc_macro2::TokenStream, syn::Ident)
+```
+
+Recursively generate a row struct from row fields.
+Returns the struct TokenStream and its Ident. Nested `RowField::Foreach` entries
+produce child structs appended to `extra_structs`.
+
+#### `widget_field_tokens` (line 124)
 
 ```rust
 fn widget_field_tokens(
@@ -245,7 +276,7 @@ fn widget_field_tokens(
 Generate field definition tokens for a `WidgetField`, handling foreach row structs.
 Returns (`field_def`, `field_default`, `optional_row_struct`).
 
-#### `parsed_to_include_tokens` (line 102)
+#### `parsed_to_include_tokens` (line 173)
 
 ```rust
 pub(crate) fn parsed_to_include_tokens(parsed: ParsedMarkdown) -> proc_macro2::TokenStream
@@ -257,7 +288,7 @@ When `widget_fields` is empty, emits a simple closure `|ui: &mut egui::Ui| { ...
 When stateful widgets are present, emits a `LituiFormState` struct with `Default`,
 a render function, and returns the tuple `(__md_render, LituiFormState::default())`.
 
-#### `to_snake_case` (line 166)
+#### `to_snake_case` (line 237)
 
 ```rust
 fn to_snake_case(s: &str) -> String
@@ -265,7 +296,7 @@ fn to_snake_case(s: &str) -> String
 
 Convert a `PascalCase` name to `snake_case`.
 
-#### `define_litui_app_impl` (line 229)
+#### `define_litui_app_impl` (line 300)
 
 ```rust
 pub(crate) fn define_litui_app_impl(
@@ -284,7 +315,7 @@ widget references, and generates:
 - Per-page `render_{snake_name}()` functions
 - `LituiApp` struct with `show_nav()` and `show_page()`
 
-#### `show_all` (line 891)
+#### `show_all` (line 973)
 
 ```rust
             pub fn show_all(&mut self, ctx: &egui::Context)
@@ -295,7 +326,7 @@ Side panels are always visible. Windows appear for the current page.
 If any pages lack a `panel:` directive, a central panel dispatches them.
 When all pages have explicit panels, no central panel is emitted.
 
-#### `generate_theme_setup` (line 991)
+#### `generate_theme_setup` (line 1073)
 
 ```rust
 fn generate_theme_setup(theme: &Option<ThemeDef>) -> Option<proc_macro2::TokenStream>

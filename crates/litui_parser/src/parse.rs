@@ -136,12 +136,64 @@ fn parse_foreach_text(
     }
 }
 
+/// Parse the argument portion of `::: collapsing <args>`.
+///
+/// Returns `(title, title_field, remaining)` where:
+/// - `title` is the literal string (empty if title comes from a field)
+/// - `title_field` is `Some(field_name)` if the title is `{field}`
+/// - `remaining` is any unparsed trailing text (e.g., `{open_field}`)
+fn parse_collapsing_args(
+    args: &str,
+) -> Result<(String, Option<String>, String), crate::error::ParseError> {
+    let args = args.trim();
+    if args.is_empty() {
+        return Err(crate::error::ParseError::new(
+            "::: collapsing requires a title: \"Title\" or {field}",
+        ));
+    }
+
+    if args.starts_with('"') {
+        // Quoted title: "Some Title" [optional rest]
+        if let Some(close) = args[1..].find('"') {
+            let title = args[1..close + 1].to_owned();
+            let rest = args[close + 2..].trim().to_owned();
+            Ok((title, None, rest))
+        } else {
+            Err(crate::error::ParseError::new(
+                "::: collapsing quoted title missing closing '\"'",
+            ))
+        }
+    } else if args.starts_with('{') {
+        // Field reference: {field_name} [optional rest]
+        if let Some(close) = args.find('}') {
+            let field_name = args[1..close].trim().to_owned();
+            if field_name.is_empty() || !field_name.chars().all(|c| c.is_alphanumeric() || c == '_')
+            {
+                return Err(crate::error::ParseError::new(format!(
+                    "::: collapsing field reference must be a valid identifier, got '{{{field_name}}}'"
+                )));
+            }
+            let rest = args[close + 1..].trim().to_owned();
+            Ok((String::new(), Some(field_name), rest))
+        } else {
+            Err(crate::error::ParseError::new(
+                "::: collapsing field reference missing closing '}'",
+            ))
+        }
+    } else {
+        // Unquoted single-word title
+        let (title, rest) = args.split_once(' ').unwrap_or((args, ""));
+        Ok((title.to_owned(), None, rest.trim().to_owned()))
+    }
+}
+
 // ── Block directive stack ──────────────────────────────────
 
 /// The type of block directive opened by `:::`.
 enum BlockDirectiveKind {
     Foreach {
         row_fields: Vec<RowField>,
+        is_tree: bool,
     },
     If,
     Style,
@@ -162,6 +214,13 @@ enum BlockDirectiveKind {
     Center,
     Right,
     Fill,
+    Collapsing {
+        title: String,
+        title_field: Option<String>,
+        open_field: Option<String>,
+        default_open: bool,
+        collapsing_index: usize,
+    },
 }
 
 /// A stack frame for a `:::` block directive.
@@ -243,6 +302,7 @@ pub fn parse_document(content: &str, frontmatter: &Frontmatter) -> Result<Docume
     let mut table_rows: Vec<Vec<Vec<Inline>>> = Vec::new();
     let mut table_current_row: Vec<Vec<Inline>> = Vec::new();
     let mut table_count: usize = 0;
+    let mut collapsing_count: usize = 0;
 
     let mut widget_fields: Vec<WidgetField> = Vec::new();
     let mut used_widget_configs: HashSet<String> = HashSet::new();
@@ -643,7 +703,8 @@ pub fn parse_document(content: &str, frontmatter: &Frontmatter) -> Result<Docume
                         needs_style_table = true;
                         // Route to foreach row_fields or top-level widget_fields
                         let in_foreach = block_stack.iter_mut().rev().find_map(|frame| {
-                            if let BlockDirectiveKind::Foreach { row_fields } = &mut frame.directive
+                            if let BlockDirectiveKind::Foreach { row_fields, .. } =
+                                &mut frame.directive
                             {
                                 Some(row_fields)
                             } else {
@@ -744,7 +805,7 @@ pub fn parse_document(content: &str, frontmatter: &Frontmatter) -> Result<Docume
                         if let Some(StyleSuffix::Dynamic(field_name)) = &runtime_field {
                             needs_style_table = true;
                             let in_foreach = block_stack.iter_mut().rev().find_map(|frame| {
-                                if let BlockDirectiveKind::Foreach { row_fields } =
+                                if let BlockDirectiveKind::Foreach { row_fields, .. } =
                                     &mut frame.directive
                                 {
                                     Some(row_fields)
@@ -912,7 +973,8 @@ pub fn parse_document(content: &str, frontmatter: &Frontmatter) -> Result<Docume
 
                         // Route fields: foreach row_fields or top-level widget_fields
                         let in_foreach = block_stack.iter_mut().rev().find_map(|frame| {
-                            if let BlockDirectiveKind::Foreach { row_fields } = &mut frame.directive
+                            if let BlockDirectiveKind::Foreach { row_fields, .. } =
+                                &mut frame.directive
                             {
                                 Some(row_fields)
                             } else {
@@ -1067,7 +1129,10 @@ pub fn parse_document(content: &str, frontmatter: &Frontmatter) -> Result<Docume
                             blocks = frame.saved_blocks;
 
                             match frame.directive {
-                                BlockDirectiveKind::Foreach { row_fields } => {
+                                BlockDirectiveKind::Foreach {
+                                    row_fields,
+                                    is_tree,
+                                } => {
                                     if row_fields.is_empty() {
                                         #[expect(
                                             clippy::literal_string_with_formatting_args,
@@ -1081,14 +1146,39 @@ pub fn parse_document(content: &str, frontmatter: &Frontmatter) -> Result<Docume
                                             frame.field_name
                                         )));
                                     }
-                                    widget_fields.push(WidgetField::Foreach {
-                                        name: frame.field_name.clone(),
-                                        row_fields,
-                                    });
+                                    // Check if nested inside a parent foreach
+                                    let parent_foreach =
+                                        block_stack.iter_mut().rev().find_map(|f| {
+                                            if let BlockDirectiveKind::Foreach {
+                                                row_fields: parent_rf,
+                                                ..
+                                            } = &mut f.directive
+                                            {
+                                                Some(parent_rf)
+                                            } else {
+                                                None
+                                            }
+                                        });
+                                    if let Some(parent_rf) = parent_foreach {
+                                        // Inner foreach: register on parent row struct
+                                        parent_rf.push(RowField::Foreach {
+                                            name: frame.field_name.clone(),
+                                            row_fields,
+                                            is_tree,
+                                        });
+                                    } else {
+                                        // Top-level foreach: register on state struct
+                                        widget_fields.push(WidgetField::Foreach {
+                                            name: frame.field_name.clone(),
+                                            row_fields,
+                                            is_tree,
+                                        });
+                                    }
                                     blocks.push(Block::Directive(Directive::Foreach {
                                         field: frame.field_name,
                                         body,
-                                        row_fields: Vec::new(), // row_fields already captured in WidgetField
+                                        row_fields: Vec::new(),
+                                        is_tree,
                                     }));
                                 }
                                 BlockDirectiveKind::If => {
@@ -1149,6 +1239,22 @@ pub fn parse_document(content: &str, frontmatter: &Frontmatter) -> Result<Docume
                                         body,
                                     }));
                                 }
+                                BlockDirectiveKind::Collapsing {
+                                    title,
+                                    title_field,
+                                    open_field,
+                                    default_open,
+                                    collapsing_index,
+                                } => {
+                                    blocks.push(Block::Directive(Directive::Collapsing {
+                                        title,
+                                        title_field,
+                                        open_field,
+                                        default_open,
+                                        body,
+                                        collapsing_index,
+                                    }));
+                                }
                             }
                         }
                     } else {
@@ -1158,9 +1264,37 @@ pub fn parse_document(content: &str, frontmatter: &Frontmatter) -> Result<Docume
 
                         match directive_name {
                             "foreach" => {
+                                // Parse optional `children` keyword for tree mode
+                                let (field_name, is_tree) = if let Some((name, rest)) =
+                                    field_name.split_once(' ')
+                                {
+                                    let rest = rest.trim();
+                                    if rest == "children" {
+                                        (name.to_owned(), true)
+                                    } else {
+                                        return Err(ParseError::new(format!(
+                                            "::: foreach '{name}' unexpected argument '{rest}'. \
+                                                 Did you mean 'children'?"
+                                        )));
+                                    }
+                                } else {
+                                    (field_name, false)
+                                };
+                                // Tree foreach inside another foreach is not supported
+                                if is_tree
+                                    && block_stack.iter().any(|f| {
+                                        matches!(&f.directive, BlockDirectiveKind::Foreach { .. })
+                                    })
+                                {
+                                    return Err(ParseError::new(
+                                        "::: foreach with 'children' cannot be nested inside another foreach. \
+                                         Use a flat ::: foreach for inner collections.",
+                                    ));
+                                }
                                 block_stack.push(BlockFrame {
                                     directive: BlockDirectiveKind::Foreach {
                                         row_fields: Vec::new(),
+                                        is_tree,
                                     },
                                     field_name,
                                     saved_blocks: std::mem::take(&mut blocks),
@@ -1289,10 +1423,107 @@ pub fn parse_document(content: &str, frontmatter: &Frontmatter) -> Result<Docume
                                     saved_blocks: std::mem::take(&mut blocks),
                                 });
                             }
+                            "collapsing" => {
+                                // Parse: "Title" | {field} | "Title" {open} | {field} {open}
+                                let (title, title_field, rest) =
+                                    parse_collapsing_args(&field_name)?;
+
+                                // Optional {open_field} for state tracking
+                                let open_field = if !rest.is_empty() {
+                                    let trimmed = rest.trim();
+                                    if trimmed.starts_with('{') && trimmed.ends_with('}') {
+                                        let name = trimmed[1..trimmed.len() - 1].trim();
+                                        if name.is_empty()
+                                            || !name
+                                                .chars()
+                                                .all(|c| c.is_alphanumeric() || c == '_')
+                                        {
+                                            return Err(ParseError::new(format!(
+                                                "::: collapsing open field must be a valid identifier, got '{trimmed}'"
+                                            )));
+                                        }
+                                        // Auto-declare the bool field — on the foreach
+                                        // row struct if inside foreach, else on AppState
+                                        let in_foreach_rf =
+                                            block_stack.iter_mut().rev().find_map(|frame| {
+                                                if let BlockDirectiveKind::Foreach {
+                                                    row_fields,
+                                                    ..
+                                                } = &mut frame.directive
+                                                {
+                                                    Some(row_fields)
+                                                } else {
+                                                    None
+                                                }
+                                            });
+                                        if let Some(row_fields) = in_foreach_rf {
+                                            if !row_fields.iter().any(|rf| rf.name() == name) {
+                                                row_fields.push(RowField::Widget {
+                                                    name: name.to_owned(),
+                                                    ty: WidgetType::Bool,
+                                                    kind: WidgetKind::Checkbox,
+                                                });
+                                            }
+                                        } else {
+                                            let already =
+                                                widget_fields.iter().any(|f| f.name() == name);
+                                            if !already {
+                                                widget_fields.push(WidgetField::Stateful {
+                                                    name: name.to_owned(),
+                                                    ty: WidgetType::Bool,
+                                                });
+                                            }
+                                        }
+                                        Some(name.to_owned())
+                                    } else {
+                                        return Err(ParseError::new(format!(
+                                            "::: collapsing unexpected trailing argument '{trimmed}'. \
+                                             Expected {{open_field}} or nothing."
+                                        )));
+                                    }
+                                } else {
+                                    None
+                                };
+
+                                // If inside a foreach, register the title field as a row field
+                                if let Some(ref tf) = title_field {
+                                    let in_foreach =
+                                        block_stack.iter_mut().rev().find_map(|frame| {
+                                            if let BlockDirectiveKind::Foreach {
+                                                row_fields, ..
+                                            } = &mut frame.directive
+                                            {
+                                                Some(row_fields)
+                                            } else {
+                                                None
+                                            }
+                                        });
+                                    if let Some(row_fields) = in_foreach {
+                                        if !row_fields.iter().any(|rf| rf.name() == tf) {
+                                            row_fields.push(RowField::Display(tf.to_owned()));
+                                        }
+                                    }
+                                }
+
+                                let idx = collapsing_count;
+                                collapsing_count += 1;
+
+                                block_stack.push(BlockFrame {
+                                    directive: BlockDirectiveKind::Collapsing {
+                                        title,
+                                        title_field,
+                                        open_field,
+                                        default_open: false,
+                                        collapsing_index: idx,
+                                    },
+                                    field_name: String::new(),
+                                    saved_blocks: std::mem::take(&mut blocks),
+                                });
+                            }
                             _ => {
                                 return Err(ParseError::new(format!(
                                     "Unknown block directive ':::{directive_name}'. \
-                                     Valid: foreach, if, style, frame, horizontal, columns, center, right, fill"
+                                     Valid: foreach, if, style, frame, horizontal, columns, center, right, fill, collapsing"
                                 )));
                             }
                         }
@@ -1301,11 +1532,12 @@ pub fn parse_document(content: &str, frontmatter: &Frontmatter) -> Result<Docume
                     continue;
                 }
 
-                // Inside foreach: parse {field} references
-                let in_foreach = matches!(
-                    block_stack.last().map(|f| &f.directive),
-                    Some(BlockDirectiveKind::Foreach { .. })
-                );
+                // Inside foreach: parse {field} references.
+                // Search the entire stack, not just the last frame, because
+                // the foreach body may contain nested directives (collapsing, etc.).
+                let in_foreach = block_stack
+                    .iter()
+                    .any(|f| matches!(&f.directive, BlockDirectiveKind::Foreach { .. }));
                 if in_foreach && !in_code_block && heading_level.is_none() && in_link.is_none() {
                     if text_str.contains('{') {
                         flush_pending(
@@ -1316,11 +1548,15 @@ pub fn parse_document(content: &str, frontmatter: &Frontmatter) -> Result<Docume
                             italic,
                             strikethrough,
                         )?;
-                        if let Some(BlockFrame {
-                            directive: BlockDirectiveKind::Foreach { row_fields },
-                            ..
-                        }) = block_stack.last_mut()
-                        {
+                        if let Some(row_fields) = block_stack.iter_mut().rev().find_map(|frame| {
+                            if let BlockDirectiveKind::Foreach { row_fields, .. } =
+                                &mut frame.directive
+                            {
+                                Some(row_fields)
+                            } else {
+                                None
+                            }
+                        }) {
                             parse_foreach_text(
                                 text_str,
                                 &mut fragments,
@@ -1986,5 +2222,268 @@ mod tests {
                 .message
                 .contains("Unknown horizontal alignment")
         );
+    }
+
+    // ── Collapsing directive ─────────────────────────────────
+
+    #[test]
+    fn collapsing_static_title() {
+        let doc = parse("::: collapsing \"Section Title\"\n\nSome content\n\n:::");
+        let dir = doc
+            .blocks
+            .iter()
+            .find_map(|b| match b {
+                Block::Directive(Directive::Collapsing {
+                    title,
+                    title_field,
+                    open_field,
+                    body,
+                    ..
+                }) => Some((title, title_field, open_field, body)),
+                _ => None,
+            })
+            .expect("Expected Collapsing directive");
+        assert_eq!(dir.0, "Section Title");
+        assert!(dir.1.is_none());
+        assert!(dir.2.is_none());
+        assert!(!dir.3.is_empty());
+    }
+
+    #[test]
+    fn collapsing_unquoted_title() {
+        let doc = parse("::: collapsing Details\n\nContent\n\n:::");
+        let dir = doc
+            .blocks
+            .iter()
+            .find_map(|b| match b {
+                Block::Directive(Directive::Collapsing { title, .. }) => Some(title.clone()),
+                _ => None,
+            })
+            .expect("Expected Collapsing directive");
+        assert_eq!(dir, "Details");
+    }
+
+    #[test]
+    fn collapsing_with_open_field() {
+        let doc = parse("::: collapsing \"Details\" {details_open}\n\nHidden\n\n:::");
+        let dir = doc
+            .blocks
+            .iter()
+            .find_map(|b| match b {
+                Block::Directive(Directive::Collapsing {
+                    title, open_field, ..
+                }) => Some((title.clone(), open_field.clone())),
+                _ => None,
+            })
+            .expect("Expected Collapsing directive");
+        assert_eq!(dir.0, "Details");
+        assert_eq!(dir.1, Some("details_open".to_owned()));
+        // open_field should auto-declare a Bool widget field
+        assert!(doc.widget_fields.iter().any(|f| f.name() == "details_open"
+            && matches!(
+                f,
+                WidgetField::Stateful {
+                    ty: WidgetType::Bool,
+                    ..
+                }
+            )));
+    }
+
+    #[test]
+    fn collapsing_field_title() {
+        let doc = parse("::: collapsing {name}\n\nBody\n\n:::");
+        let dir = doc
+            .blocks
+            .iter()
+            .find_map(|b| match b {
+                Block::Directive(Directive::Collapsing { title_field, .. }) => {
+                    Some(title_field.clone())
+                }
+                _ => None,
+            })
+            .expect("Expected Collapsing directive");
+        assert_eq!(dir, Some("name".to_owned()));
+    }
+
+    #[test]
+    fn collapsing_field_title_with_open() {
+        let doc = parse("::: collapsing {name} {is_open}\n\nBody\n\n:::");
+        let dir = doc
+            .blocks
+            .iter()
+            .find_map(|b| match b {
+                Block::Directive(Directive::Collapsing {
+                    title_field,
+                    open_field,
+                    ..
+                }) => Some((title_field.clone(), open_field.clone())),
+                _ => None,
+            })
+            .expect("Expected Collapsing directive");
+        assert_eq!(dir.0, Some("name".to_owned()));
+        assert_eq!(dir.1, Some("is_open".to_owned()));
+    }
+
+    #[test]
+    fn collapsing_nested() {
+        let doc = parse(
+            "::: collapsing \"Outer\"\n\n\
+             ::: collapsing \"Inner\"\n\n\
+             Nested content\n\n\
+             :::\n\n\
+             :::",
+        );
+        let outer = doc
+            .blocks
+            .iter()
+            .find_map(|b| match b {
+                Block::Directive(Directive::Collapsing { title, body, .. }) if title == "Outer" => {
+                    Some(body)
+                }
+                _ => None,
+            })
+            .expect("Expected outer Collapsing");
+        let inner = outer
+            .iter()
+            .find_map(|b| match b {
+                Block::Directive(Directive::Collapsing { title, .. }) if title == "Inner" => {
+                    Some(title.clone())
+                }
+                _ => None,
+            })
+            .expect("Expected inner Collapsing");
+        assert_eq!(inner, "Inner");
+    }
+
+    #[test]
+    fn collapsing_missing_title_error() {
+        let result = parse_document("::: collapsing\n\ntext\n\n:::", &Frontmatter::default());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("requires a title"));
+    }
+
+    // ── Tree foreach ─────────────────────────────────────────
+
+    #[test]
+    fn foreach_tree_keyword() {
+        let doc = parse("::: foreach bones children\n\n| {name} |\n|---|\n\n:::");
+        let dir = doc
+            .blocks
+            .iter()
+            .find_map(|b| match b {
+                Block::Directive(Directive::Foreach { is_tree, .. }) => Some(*is_tree),
+                _ => None,
+            })
+            .expect("Expected Foreach directive");
+        assert!(dir, "Expected is_tree to be true");
+    }
+
+    #[test]
+    fn foreach_not_tree_by_default() {
+        let doc = parse("::: foreach items\n\n| {name} |\n|---|\n\n:::");
+        let dir = doc
+            .blocks
+            .iter()
+            .find_map(|b| match b {
+                Block::Directive(Directive::Foreach { is_tree, .. }) => Some(*is_tree),
+                _ => None,
+            })
+            .expect("Expected Foreach directive");
+        assert!(!dir, "Expected is_tree to be false");
+    }
+
+    #[test]
+    fn foreach_tree_has_children_in_widget_fields() {
+        let doc = parse("::: foreach nodes children\n\n| {label} |\n|---|\n\n:::");
+        let wf = doc
+            .widget_fields
+            .iter()
+            .find(|f| f.name() == "nodes")
+            .expect("Expected nodes widget field");
+        match wf {
+            WidgetField::Foreach { is_tree, .. } => assert!(is_tree),
+            _ => panic!("Expected Foreach widget field"),
+        }
+    }
+
+    #[test]
+    fn foreach_tree_invalid_keyword_error() {
+        let result = parse_document(
+            "::: foreach bones recursive\n\n| {name} |\n|---|\n\n:::",
+            &Frontmatter::default(),
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("Did you mean"));
+    }
+
+    #[test]
+    fn inner_foreach_routes_to_parent_row_fields() {
+        let doc = parse(
+            "::: foreach items\n\n\
+             | {name} |\n|---|\n\n\
+             ::: foreach tags\n\n\
+             | {label} |\n|---|\n\n\
+             :::\n\n\
+             :::",
+        );
+        // The top-level widget_fields should have ONE Foreach for "items"
+        let wf = doc
+            .widget_fields
+            .iter()
+            .find(|f| f.name() == "items")
+            .expect("Expected items widget field");
+        // "tags" should NOT be in top-level widget_fields
+        assert!(doc.widget_fields.iter().all(|f| f.name() != "tags"));
+        // "tags" should be a RowField::Foreach inside items' row_fields
+        if let WidgetField::Foreach { row_fields, .. } = wf {
+            let has_tags = row_fields
+                .iter()
+                .any(|rf| matches!(rf, RowField::Foreach { name, .. } if name == "tags"));
+            assert!(has_tags, "Expected RowField::Foreach for 'tags' on items");
+        } else {
+            panic!("Expected Foreach widget field");
+        }
+    }
+
+    #[test]
+    fn collapsing_open_field_routes_to_foreach_row_fields() {
+        let doc = parse(
+            "::: foreach items\n\n\
+             ::: collapsing {name} {is_open}\n\n\
+             Body\n\n\
+             :::\n\n\
+             :::",
+        );
+        let wf = doc
+            .widget_fields
+            .iter()
+            .find(|f| f.name() == "items")
+            .expect("Expected items widget field");
+        // is_open should NOT be in top-level widget_fields
+        assert!(doc.widget_fields.iter().all(|f| f.name() != "is_open"));
+        // is_open should be a RowField::Widget on items' row_fields
+        if let WidgetField::Foreach { row_fields, .. } = wf {
+            let has_open = row_fields.iter().any(|rf| {
+                matches!(rf, RowField::Widget { name, ty: WidgetType::Bool, .. } if name == "is_open")
+            });
+            assert!(has_open, "Expected is_open: bool on items row_fields");
+        } else {
+            panic!("Expected Foreach widget field");
+        }
+    }
+
+    #[test]
+    fn tree_foreach_inside_foreach_error() {
+        let result = parse_document(
+            "::: foreach outer\n\n\
+             | {x} |\n|---|\n\n\
+             ::: foreach inner children\n\n\
+             | {y} |\n|---|\n\n\
+             :::\n\n\
+             :::",
+            &Frontmatter::default(),
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("cannot be nested"));
     }
 }

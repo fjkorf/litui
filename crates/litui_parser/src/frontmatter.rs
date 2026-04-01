@@ -94,6 +94,10 @@ pub struct PageDef {
     /// `false` for panel and window pages.
     #[serde(default)]
     pub navigable: Option<bool>,
+    /// Background color for the panel/window frame. Supports hex (`"#RRGGBB"`, `"#RRGGBBAA"`)
+    /// or `"transparent"`. When set, emits `.frame(Frame::none().fill(...))` on the container.
+    #[serde(default)]
+    pub background: Option<String>,
 }
 
 /// Navigation configuration, specified in the parent frontmatter.
@@ -145,6 +149,12 @@ pub struct WidgetDef {
     pub max_height: Option<f64>,
     /// Fill color for progress bars (e.g., `"#8B0000"`)
     pub fill: Option<String>,
+    /// Integer mode for sliders — snaps to whole numbers.
+    pub integer: Option<bool>,
+    /// Step size for slider quantization (e.g., `5.0` for 5-degree increments).
+    pub step: Option<f64>,
+    /// Fixed decimal places for slider/dragvalue display.
+    pub decimals: Option<usize>,
 }
 
 /// A named style preset that controls how text is rendered.

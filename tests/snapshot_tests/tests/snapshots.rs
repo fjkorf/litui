@@ -166,6 +166,29 @@ fn new_widgets() {
 }
 
 #[test]
+fn numeric_config() {
+    let (render, mut state) = include_litui_ui!("fixtures/numeric_config.md");
+    state.step_val = 90.0;
+    state.dec_val = 0.123;
+    state.drag_val = 42.5;
+    let width = 800.0;
+    let mut harness = Harness::builder()
+        .with_size(egui::vec2(width, 600.0))
+        .with_max_steps(16)
+        .wgpu()
+        .build_ui(move |ui| {
+            render(ui, &mut state);
+        });
+    harness.run_steps(2);
+    harness.fit_contents();
+    #[expect(deprecated)]
+    let height = harness.ctx.screen_rect().height().max(600.0);
+    harness.set_size(egui::vec2(width, height));
+    harness.run_steps(2);
+    harness.snapshot("numeric_config");
+}
+
+#[test]
 fn new_tier_widgets() {
     let (render, mut state) = include_litui_ui!("fixtures/new_tier_widgets.md");
     let width = 800.0;
@@ -323,6 +346,119 @@ fn log_widget() {
     harness.set_size(egui::vec2(width, height));
     harness.run_steps(2);
     harness.snapshot("log_widget");
+}
+
+#[test]
+fn collapsing() {
+    snapshot_markdown("collapsing", include_litui_ui!("fixtures/collapsing.md"));
+}
+
+#[test]
+fn foreach_tree() {
+    let (render, mut state) = include_litui_ui!("fixtures/foreach_tree.md");
+    // Populate a tree: Root -> Arm -> Hand, Root -> Leg
+    {
+        let bones = &mut state.bones;
+
+        // Hand (leaf)
+        bones.push(Default::default());
+        let hand = bones.last_mut().unwrap();
+        hand.name = "Hand".into();
+        hand.description = "5 fingers".into();
+
+        // Arm with Hand as child
+        bones.push(Default::default());
+        let arm = bones.last_mut().unwrap();
+        arm.name = "Arm".into();
+        arm.description = "Upper limb".into();
+        arm.children.push(Default::default());
+        arm.children.last_mut().unwrap().name = "Hand".into();
+        arm.children.last_mut().unwrap().description = "5 fingers".into();
+
+        // Leg (leaf)
+        bones.push(Default::default());
+        let leg = bones.last_mut().unwrap();
+        leg.name = "Leg".into();
+        leg.description = "Lower limb".into();
+    }
+    let width = 800.0;
+    let mut harness = Harness::builder()
+        .with_size(egui::vec2(width, 600.0))
+        .with_max_steps(16)
+        .wgpu()
+        .build_ui(move |ui| {
+            render(ui, &mut state);
+        });
+    harness.run_steps(2);
+    harness.fit_contents();
+    #[expect(deprecated)]
+    let height = harness.ctx.screen_rect().height().max(600.0);
+    harness.set_size(egui::vec2(width, height));
+    harness.run_steps(2);
+    harness.snapshot("foreach_tree");
+}
+
+#[test]
+fn foreach_tree_inner() {
+    let (render, mut state) = include_litui_ui!("fixtures/foreach_tree_inner.md");
+    // Build a tree: Arm (with shapes Sphere, Box) -> Hand (with shape Capsule)
+    {
+        let bones = &mut state.bones;
+
+        // Arm bone with shapes and a child
+        bones.push(Default::default());
+        let arm = bones.last_mut().unwrap();
+        arm.name = "Arm".into();
+        arm.is_open = true;
+        // Add shapes to Arm
+        arm.shapes.push(Default::default());
+        arm.shapes.last_mut().unwrap().shape_name = "Sphere".into();
+        arm.shapes.last_mut().unwrap().shape_type = "Primitive".into();
+        arm.shapes.push(Default::default());
+        arm.shapes.last_mut().unwrap().shape_name = "Box".into();
+        arm.shapes.last_mut().unwrap().shape_type = "Primitive".into();
+        // Child bone: Hand
+        arm.children.push(Default::default());
+        arm.children.last_mut().unwrap().name = "Hand".into();
+        arm.children
+            .last_mut()
+            .unwrap()
+            .shapes
+            .push(Default::default());
+        arm.children
+            .last_mut()
+            .unwrap()
+            .shapes
+            .last_mut()
+            .unwrap()
+            .shape_name = "Capsule".into();
+        arm.children
+            .last_mut()
+            .unwrap()
+            .shapes
+            .last_mut()
+            .unwrap()
+            .shape_type = "Smooth".into();
+
+        // Leg bone (no shapes, no children)
+        bones.push(Default::default());
+        bones.last_mut().unwrap().name = "Leg".into();
+    }
+    let width = 800.0;
+    let mut harness = Harness::builder()
+        .with_size(egui::vec2(width, 600.0))
+        .with_max_steps(16)
+        .wgpu()
+        .build_ui(move |ui| {
+            render(ui, &mut state);
+        });
+    harness.run_steps(2);
+    harness.fit_contents();
+    #[expect(deprecated)]
+    let height = harness.ctx.screen_rect().height().max(600.0);
+    harness.set_size(egui::vec2(width, height));
+    harness.run_steps(2);
+    harness.snapshot("foreach_tree_inner");
 }
 
 #[test]

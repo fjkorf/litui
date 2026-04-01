@@ -80,6 +80,97 @@ Server status: [display](status_text) ::$status_style
 
 Auto-declares `status_style: String`. Only the `color` property is applied at runtime.
 
+## Collapsible sections
+
+Wrap content in an expandable/collapsible header using `::: collapsing`:
+
+```text
+::: collapsing "Inventory Details"
+
+- Weight capacity: 50 lb
+- Gold: 127
+
+:::
+```
+
+The title can be a quoted string, an unquoted word, or a `{field}` reference (for foreach).
+
+### State-tracked open/close
+
+Append `{bool_field}` to sync the open/closed state with `AppState`:
+
+```text
+::: collapsing "Server Info" {show_server_info}
+
+Server status details here.
+
+:::
+```
+
+Auto-declares `show_server_info: bool` (default `false`). The app can programmatically open/close the section by setting this field, and user clicks update it back.
+
+### Nesting
+
+Collapsing inside collapsing works — each gets a unique egui ID:
+
+```text
+::: collapsing "Outer"
+
+::: collapsing "Inner"
+
+Nested content.
+
+:::
+
+:::
+```
+
+### Inside foreach
+
+Use `{field}` for per-row collapsible headers:
+
+```text
+::: foreach bones
+
+::: collapsing {name}
+
+Bone details here.
+
+:::
+
+:::
+```
+
+## Tree rendering
+
+Add `children` after the field name to render recursive tree structures:
+
+```text
+::: foreach bones children
+
+::: collapsing {name}
+
+{description}
+
+:::
+
+:::
+```
+
+This generates a row struct with `children: Vec<Self>`. The body renders recursively — each node's children are rendered with the same template beneath it. Populate from code:
+
+```rust,ignore
+let mut arm = BonesRow::default();
+arm.name = "Arm".into();
+arm.children.push(BonesRow {
+    name: "Hand".into(),
+    ..Default::default()
+});
+state.bones.push(arm);
+```
+
+Tree foreach works naturally with `::: collapsing` for expandable hierarchies like scene graphs, file browsers, and property trees.
+
 ## Widgets in Foreach Tables
 
 You can use input widgets inside foreach blocks. They create typed fields on the row struct:

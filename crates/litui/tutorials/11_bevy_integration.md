@@ -70,6 +70,28 @@ fn render_page(
 }
 ```
 
+## Transparent panels for 3D viewports
+
+When building editor UIs over a Bevy 3D scene, use `background: transparent` on panels to let the viewport show through:
+
+```yaml
+page:
+  name: Properties
+  panel: right
+  width: 280
+  background: transparent
+```
+
+When ALL pages have explicit `panel:` directives and none are central pages, `show_all()` skips the `CentralPanel` entirely — the Bevy renderer fills the background. Combine with `nav: { position: none }` if navigation is handled manually.
+
+Semi-transparent backgrounds also work for glass-panel effects:
+
+```yaml
+background: "#1A1A2E80"
+```
+
+The `80` is hex alpha (50% opacity).
+
 ## Expert tip
 
 Bevy render systems that touch egui must run in the `EguiPrimaryContextPass` schedule — not `Update`. This ensures the egui context is available and properly synchronized with Bevy's render pipeline. Business logic (updating `AppState` from game systems) runs in `Update` as normal. The `.chain()` on render systems ensures navigation renders before page content, avoiding a one-frame lag when switching pages.

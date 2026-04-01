@@ -170,12 +170,18 @@ pub enum RowField {
         ty: WidgetType,
         kind: WidgetKind,
     },
+    /// Nested foreach inside a foreach — generates a child row struct + `Vec<ChildRow>`.
+    Foreach {
+        name: String,
+        row_fields: Vec<RowField>,
+        is_tree: bool,
+    },
 }
 
 impl RowField {
     pub fn name(&self) -> &str {
         match self {
-            Self::Display(n) | Self::Widget { name: n, .. } => n,
+            Self::Display(n) | Self::Widget { name: n, .. } | Self::Foreach { name: n, .. } => n,
         }
     }
 }
@@ -189,6 +195,8 @@ pub enum WidgetField {
     Foreach {
         name: String,
         row_fields: Vec<RowField>,
+        /// When true, the row struct gets `children: Vec<Self>` and rendering is recursive.
+        is_tree: bool,
     },
 }
 
@@ -284,6 +292,8 @@ pub enum Directive {
         field: String,
         body: Vec<Block>,
         row_fields: Vec<RowField>,
+        /// When true, each row has `children: Vec<Self>` and the body renders recursively.
+        is_tree: bool,
     },
     If {
         field: String,
@@ -322,6 +332,20 @@ pub enum Directive {
     /// `::: fill` — stretch content to fill available width.
     Fill {
         body: Vec<Block>,
+    },
+    /// `::: collapsing` — egui `CollapsingHeader` wrapper.
+    Collapsing {
+        /// Static title text (used when `title_field` is `None`).
+        title: String,
+        /// If `Some`, the title comes from this field (e.g., `{name}` in foreach).
+        title_field: Option<String>,
+        /// Optional bool field on AppState for bidirectional open/close tracking.
+        open_field: Option<String>,
+        /// Default open state (currently always `false`).
+        default_open: bool,
+        body: Vec<Block>,
+        /// Unique index for generating stable egui IDs.
+        collapsing_index: usize,
     },
 }
 

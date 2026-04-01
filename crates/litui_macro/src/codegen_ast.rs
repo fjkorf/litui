@@ -5,7 +5,9 @@
 //! token generation that was previously interleaved with parsing in `parse.rs`.
 
 use litui_parser::ast::*;
-use litui_parser::frontmatter::{Frontmatter, StyleDef, parse_hex_color, resolve_classes};
+use litui_parser::frontmatter::{
+    Frontmatter, StyleDef, capitalize_first, parse_hex_color, resolve_classes,
+};
 use quote::quote;
 
 /// Shared context threaded through all codegen functions.
@@ -15,6 +17,9 @@ struct CodegenContext<'a> {
     /// True when generating code inside a `foreach` loop body.
     /// Widgets reference `__row.field` instead of `state.field`.
     in_foreach: bool,
+    /// True when inside a `foreach ... children` tree body.
+    /// Collapsing directives use dynamic ID salts incorporating depth + pointer.
+    in_tree_foreach: bool,
 }
 
 impl<'a> CodegenContext<'a> {
@@ -23,6 +28,7 @@ impl<'a> CodegenContext<'a> {
             frontmatter,
             source_span,
             in_foreach: false,
+            in_tree_foreach: false,
         }
     }
 
@@ -32,6 +38,17 @@ impl<'a> CodegenContext<'a> {
             frontmatter: self.frontmatter,
             source_span: self.source_span,
             in_foreach: true,
+            in_tree_foreach: self.in_tree_foreach,
+        }
+    }
+
+    /// Create a child context for tree foreach body generation.
+    fn for_tree_foreach(&self) -> Self {
+        Self {
+            frontmatter: self.frontmatter,
+            source_span: self.source_span,
+            in_foreach: true,
+            in_tree_foreach: true,
         }
     }
 
@@ -59,6 +76,25 @@ pub(crate) struct ParsedMarkdownFromAst {
     pub(crate) used_widget_configs: std::collections::HashSet<String>,
 }
 
+fn convert_row_field(rf: &litui_parser::ast::RowField) -> crate::parse::RowField {
+    match rf {
+        litui_parser::ast::RowField::Display(n) => crate::parse::RowField::Display(n.clone()),
+        litui_parser::ast::RowField::Widget { name, ty, .. } => crate::parse::RowField::Widget {
+            name: name.clone(),
+            ty: convert_widget_type(*ty),
+        },
+        litui_parser::ast::RowField::Foreach {
+            name,
+            row_fields,
+            is_tree,
+        } => crate::parse::RowField::Foreach {
+            name: name.clone(),
+            row_fields: row_fields.iter().map(convert_row_field).collect(),
+            is_tree: *is_tree,
+        },
+    }
+}
+
 /// Convert `litui_parser` `WidgetField` → `crate::parse::WidgetField`
 fn convert_widget_field(f: &litui_parser::ast::WidgetField) -> crate::parse::WidgetField {
     match f {
@@ -68,25 +104,15 @@ fn convert_widget_field(f: &litui_parser::ast::WidgetField) -> crate::parse::Wid
                 ty: convert_widget_type(*ty),
             }
         }
-        litui_parser::ast::WidgetField::Foreach { name, row_fields } => {
-            crate::parse::WidgetField::Foreach {
-                name: name.clone(),
-                row_fields: row_fields
-                    .iter()
-                    .map(|rf| match rf {
-                        litui_parser::ast::RowField::Display(n) => {
-                            crate::parse::RowField::Display(n.clone())
-                        }
-                        litui_parser::ast::RowField::Widget { name, ty, .. } => {
-                            crate::parse::RowField::Widget {
-                                name: name.clone(),
-                                ty: convert_widget_type(*ty),
-                            }
-                        }
-                    })
-                    .collect(),
-            }
-        }
+        litui_parser::ast::WidgetField::Foreach {
+            name,
+            row_fields,
+            is_tree,
+        } => crate::parse::WidgetField::Foreach {
+            name: name.clone(),
+            row_fields: row_fields.iter().map(convert_row_field).collect(),
+            is_tree: *is_tree,
+        },
     }
 }
 
@@ -458,10 +484,27 @@ fn widget_to_tokens(
             let label = wdef.label.unwrap_or_default();
             let suffix = wdef.suffix.unwrap_or_default();
             let prefix = wdef.prefix.unwrap_or_default();
+            let integer_call = if wdef.integer == Some(true) {
+                quote! { .integer() }
+            } else {
+                quote! {}
+            };
+            let step_call = if let Some(step) = wdef.step {
+                quote! { .step_by(#step) }
+            } else {
+                quote! {}
+            };
+            let decimals_call = if let Some(dec) = wdef.decimals {
+                let d = dec;
+                quote! { .fixed_decimals(#d) }
+            } else {
+                quote! {}
+            };
             quote! {
                 ui.add(
                     egui::Slider::new(&mut #state_ref.#field, #min_val..=#max_val)
                         .text(#label).suffix(#suffix).prefix(#prefix)
+                        #integer_call #step_call #decimals_call
                 );
             }
         }
@@ -523,7 +566,32 @@ fn widget_to_tokens(
             let field = syn::Ident::new(&content, proc_macro2::Span::call_site());
             let wdef = get_widget_def(widget_attrs, ctx.frontmatter);
             let speed = wdef.speed.unwrap_or(0.1);
-            quote! { ui.add(egui::DragValue::new(&mut #state_ref.#field).speed(#speed)); }
+            let range_call = match (wdef.min, wdef.max) {
+                (Some(lo), Some(hi)) => quote! { .range(#lo..=#hi) },
+                (Some(lo), None) => quote! { .range(#lo..=f64::MAX) },
+                (None, Some(hi)) => quote! { .range(f64::MIN..=#hi) },
+                (None, None) => quote! {},
+            };
+            let suffix_call = match &wdef.suffix {
+                Some(s) if !s.is_empty() => quote! { .suffix(#s) },
+                _ => quote! {},
+            };
+            let prefix_call = match &wdef.prefix {
+                Some(s) if !s.is_empty() => quote! { .prefix(#s) },
+                _ => quote! {},
+            };
+            let decimals_call = if let Some(dec) = wdef.decimals {
+                let d = dec;
+                quote! { .fixed_decimals(#d) }
+            } else {
+                quote! {}
+            };
+            quote! {
+                ui.add(
+                    egui::DragValue::new(&mut #state_ref.#field)
+                        .speed(#speed) #range_call #suffix_call #prefix_call #decimals_call
+                );
+            }
         }
         WidgetKind::Display => {
             let field = syn::Ident::new(&content, proc_macro2::Span::call_site());
@@ -1139,8 +1207,8 @@ fn table_to_tokens(
     if in_foreach {
         let base_id = id_str;
         code_body.push(quote! {
-            ui.push_id(format!("{}_{:p}", #base_id, __row as *const _), |ui| {
-                egui::Grid::new(format!("{}_{:p}", #base_id, __row as *const _))
+            ui.push_id(format!("{}_{}", #base_id, __row_idx), |ui| {
+                egui::Grid::new(format!("{}_{}", #base_id, __row_idx))
                     .num_columns(#ncols)
                     .striped(true)
                     .show(ui, |ui| {
@@ -1175,8 +1243,13 @@ fn directive_to_tokens(
             field,
             body,
             row_fields: _,
+            is_tree,
         } => {
-            let foreach_ctx = ctx.for_foreach();
+            let foreach_ctx = if *is_tree {
+                ctx.for_tree_foreach()
+            } else {
+                ctx.for_foreach()
+            };
             let mut body_tokens: Vec<proc_macro2::TokenStream> = Vec::new();
             for block in body {
                 // Tables inside foreach need the in_foreach flag
@@ -1205,11 +1278,43 @@ fn directive_to_tokens(
                 }
             }
             let field_ident = syn::Ident::new(field, proc_macro2::Span::call_site());
-            code_body.push(quote! {
-                for __row in &mut state.#field_ident {
-                    #(#body_tokens)*
-                }
-            });
+
+            if *is_tree {
+                // Generate a recursive local function for tree rendering.
+                let struct_name = format!("{}Row", capitalize_first(field));
+                let struct_ident = syn::Ident::new(&struct_name, proc_macro2::Span::call_site());
+                let fn_name = syn::Ident::new(
+                    &format!("__render_{field}_tree"),
+                    proc_macro2::Span::call_site(),
+                );
+                code_body.push(quote! {
+                    fn #fn_name(
+                        ui: &mut egui::Ui,
+                        __tree_nodes: &mut Vec<#struct_ident>,
+                        __tree_depth: usize,
+                    ) {
+                        for (__row_idx, __row) in __tree_nodes.iter_mut().enumerate() {
+                            #(#body_tokens)*
+                            if !__row.children.is_empty() {
+                                #fn_name(ui, &mut __row.children, __tree_depth + 1);
+                            }
+                        }
+                    }
+                    #fn_name(ui, &mut state.#field_ident, 0);
+                });
+            } else {
+                // Collection source: state.field (top-level) or __row.field (inner foreach)
+                let source = if ctx.in_foreach {
+                    quote! { __row.#field_ident }
+                } else {
+                    quote! { state.#field_ident }
+                };
+                code_body.push(quote! {
+                    for (__row_idx, __row) in #source.iter_mut().enumerate() {
+                        #(#body_tokens)*
+                    }
+                });
+            }
         }
         Directive::If { field, body } => {
             let mut body_tokens: Vec<proc_macro2::TokenStream> = Vec::new();
@@ -1386,6 +1491,77 @@ fn directive_to_tokens(
                     #(#body_tokens)*
                 });
             });
+        }
+        Directive::Collapsing {
+            title,
+            title_field,
+            open_field,
+            default_open,
+            body,
+            collapsing_index,
+        } => {
+            let mut body_tokens: Vec<proc_macro2::TokenStream> = Vec::new();
+            for block in body {
+                block_to_tokens(block, &mut body_tokens, ctx)?;
+            }
+
+            let state_ref = ctx.state_ref();
+            let base_salt = format!("litui_collapsing_{collapsing_index}");
+
+            // In tree foreach, use dynamic salt incorporating depth + pointer for uniqueness
+            let salt = if ctx.in_tree_foreach {
+                quote! { format!("{}_{}_{}", #base_salt, __tree_depth, __row_idx) }
+            } else {
+                quote! { #base_salt }
+            };
+
+            // Title expression: literal string or field reference
+            let title_expr = if let Some(field) = title_field {
+                let field_ident = syn::Ident::new(field, ctx.source_span);
+                quote! { #state_ref.#field_ident.as_str() }
+            } else {
+                quote! { #title }
+            };
+
+            if let Some(open) = open_field {
+                // Bidirectional state tracking via CollapsingState.
+                // Uses show_toggle_button + show_body_indented (both &mut self)
+                // instead of show_header (which consumes self by value).
+                let open_ident = syn::Ident::new(open, ctx.source_span);
+                code_body.push(quote! {
+                    {
+                        let __collapsing_id = ui.make_persistent_id(#salt);
+                        let mut __cs = egui::collapsing_header::CollapsingState::load_with_default_open(
+                            ui.ctx(), __collapsing_id, #state_ref.#open_ident,
+                        );
+                        if #state_ref.#open_ident != __cs.is_open() {
+                            __cs.set_open(#state_ref.#open_ident);
+                        }
+                        let __toggle = ui.horizontal(|ui| {
+                            let __btn = __cs.show_toggle_button(
+                                ui, egui::collapsing_header::paint_default_icon,
+                            );
+                            ui.label(#title_expr);
+                            __btn
+                        });
+                        __cs.show_body_indented(&__toggle.inner, ui, |ui| {
+                            #(#body_tokens)*
+                        });
+                        #state_ref.#open_ident = __cs.is_open();
+                    }
+                });
+            } else {
+                // egui manages state internally
+                let default_open_val = *default_open;
+                code_body.push(quote! {
+                    egui::CollapsingHeader::new(#title_expr)
+                        .id_salt(#salt)
+                        .default_open(#default_open_val)
+                        .show(ui, |ui| {
+                            #(#body_tokens)*
+                        });
+                });
+            }
         }
         Directive::Frame { style_name, body } => {
             let style = style_name

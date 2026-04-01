@@ -30,6 +30,21 @@ This page demonstrates runtime data: foreach iteration, conditionals, and dynami
 
 :::
 
-## Dynamic Status
+## Collapsible Sections
+
+::: collapsing "Inventory Details"
+
+Toggle this section to show or hide the summary.
+
+- Weight capacity: 50 lb
+- Gold: 127
+
+:::
+
+::: collapsing "Server Info" {show_server_info}
 
 Server status: [display](status_text) ::$status_style
+
+This section's open/close state is tracked in `AppState`.
+
+:::

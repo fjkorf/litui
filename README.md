@@ -142,8 +142,11 @@ Step-by-step guides are built into the docs. Run `cargo doc -p litui --open` and
 | **Message log** | `[log]` — scrollable stick-to-bottom message list from `Vec<String>` |
 | **Container directives** | `panel: right` in frontmatter, `show_all(ctx)` handles layout automatically |
 | **Panel visibility** | `open:` on any panel type for state-driven show/hide |
+| **Panel backgrounds** | `background: transparent` or `"#RRGGBBAA"` — per-panel fill, ideal for Bevy overlays |
 | **Navigation control** | `navigable:` per page, `nav:` config for position/filtering |
 | **Conditional sections** | `::: if` blocks — show/hide content based on AppState bool |
+| **Collapsible sections** | `::: collapsing "Title"` — `CollapsingHeader` with optional state tracking |
+| **Recursive trees** | `::: foreach nodes children` — tree rendering with `Vec<Self>` row structs |
 | **Alignment directives** | `::: center`, `::: right`, `::: fill` — block alignment via egui Layout |
 | **Horizontal alignment** | `::: horizontal center/right/space-between` — row layout options |
 | **Weighted columns** | `::: columns 3:1:1` — proportional column widths via StripBuilder |
@@ -212,7 +215,11 @@ widgets:
   vol: { min: 0, max: 100, label: Volume }
   fmt: { format: "{:.1}" }
   range: { min: 20, max: 20000 }
+  octaves: { min: 0, max: 6, integer: true, label: Octaves }
+  angle: { speed: 0.5, suffix: "°", decimals: 1 }
 ```
+
+Numeric options: `integer` (snap to whole numbers), `step` (quantize), `decimals` (fixed precision). DragValue supports `min`/`max` (range clamping), `suffix`/`prefix`, and `decimals`.
 
 | Widget | State | Description |
 |--------|-------|-------------|
@@ -234,6 +241,8 @@ widgets:
 | `[select](index){list}` | `usize` + `Vec<String>` | Scrollable runtime selection list |
 | `[display](field){config}` | `String` | Read-only value display (self-declares if needed) |
 | `::: foreach field` ... `:::` | `Vec<Row>` | Iterate dynamic collections as tables/lists |
+| `::: foreach field children` ... `:::` | `Vec<Row>` | Recursive tree rendering with `children: Vec<Self>` |
+| `::: collapsing "Title"` ... `:::` | — or `bool` | Collapsible section (`CollapsingHeader`) |
 
 ## Project Structure
 

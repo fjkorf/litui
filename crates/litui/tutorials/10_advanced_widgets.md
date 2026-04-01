@@ -41,9 +41,27 @@ widgets:
 [password](secret){secret_cfg}
 ```
 
-- `[dragvalue]` — drag to change a number (`f64`, supports `min`/`max`/`speed`)
+- `[dragvalue]` — drag to change a number (`f64`, supports `min`/`max`/`speed`/`suffix`/`prefix`/`decimals`)
 - `[textarea]` — multi-line text input (`String`, supports `rows`/`hint`)
 - `[password]` — masked text input (`String`, supports `hint`)
+
+## Numeric precision
+
+Sliders and drag values support precision options:
+
+```yaml
+widgets:
+  octaves: { min: 0, max: 6, integer: true, label: Octaves }
+  rotation: { min: -180, max: 180, step: 5.0, suffix: "°" }
+  smooth_k: { min: 0.0, max: 0.1, decimals: 3 }
+  roughness: { min: 0.0, max: 1.0, speed: 0.01, decimals: 2 }
+```
+
+- `integer: true` — snap to whole numbers (slider only)
+- `step: 5.0` — quantize to discrete steps (slider only)
+- `decimals: 3` — fixed decimal places (slider and dragvalue)
+- `min`/`max` on dragvalue — clamps the drag range
+- `suffix`/`prefix` — works on both slider and dragvalue
 
 ## Display widgets
 
