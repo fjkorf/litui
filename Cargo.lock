@@ -5660,6 +5660,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tut_13_custom"
+version = "0.33.3"
+dependencies = [
+ "bevy",
+ "bevy_egui",
+ "egui",
+ "egui_extras",
+ "litui",
+]
+
+[[package]]
 name = "twox-hash"
 version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

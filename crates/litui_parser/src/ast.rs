@@ -90,6 +90,8 @@ pub enum WidgetKind {
     Select,
     Log,
     Datepicker,
+    /// Escape hatch: `[custom](slot)` — renders a user-supplied closure.
+    Custom,
 }
 
 impl WidgetKind {
@@ -115,6 +117,7 @@ impl WidgetKind {
             "select" => Some(Self::Select),
             "log" => Some(Self::Log),
             "datepicker" => Some(Self::Datepicker),
+            "custom" => Some(Self::Custom),
             _ => None,
         }
     }
@@ -140,6 +143,7 @@ impl WidgetKind {
         "select",
         "log",
         "datepicker",
+        "custom",
     ];
 }
 
@@ -198,21 +202,27 @@ pub enum WidgetField {
         /// When true, the row struct gets `children: Vec<Self>` and rendering is recursive.
         is_tree: bool,
     },
+    /// Custom escape hatch: `[custom](slot)` — generates an
+    /// `Option<Box<dyn FnMut(&mut egui::Ui) + Send + Sync>>` field that the
+    /// user fills in to draw raw egui at that location. Has no Rust value type.
+    CustomSlot { name: String },
 }
 
 impl WidgetField {
     /// The field name on the generated state struct.
     pub fn name(&self) -> &str {
         match self {
-            Self::Stateful { name, .. } | Self::Foreach { name, .. } => name,
+            Self::Stateful { name, .. }
+            | Self::Foreach { name, .. }
+            | Self::CustomSlot { name } => name,
         }
     }
 
-    /// The Rust type, if this is a stateful field (not foreach).
+    /// The Rust type, if this is a stateful field (not foreach or custom slot).
     pub fn ty(&self) -> Option<WidgetType> {
         match self {
             Self::Stateful { ty, .. } => Some(*ty),
-            Self::Foreach { .. } => None,
+            Self::Foreach { .. } | Self::CustomSlot { .. } => None,
         }
     }
 }

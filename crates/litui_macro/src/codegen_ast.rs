@@ -113,6 +113,9 @@ fn convert_widget_field(f: &litui_parser::ast::WidgetField) -> crate::parse::Wid
             row_fields: row_fields.iter().map(convert_row_field).collect(),
             is_tree: *is_tree,
         },
+        litui_parser::ast::WidgetField::CustomSlot { name } => {
+            crate::parse::WidgetField::CustomSlot { name: name.clone() }
+        }
     }
 }
 
@@ -717,6 +720,22 @@ fn widget_to_tokens(
             let field = syn::Ident::new(&content, proc_macro2::Span::call_site());
             quote! {
                 ui.add(egui_extras::DatePickerButton::new(&mut #state_ref.#field));
+            }
+        }
+        WidgetKind::Custom => {
+            // Escape hatch: render the user-supplied closure stored in the
+            // `Option<Box<dyn FnMut(&mut Ui) + Send + Sync>>` slot. The closure
+            // is taken out via `Option::take` (ending the mutable borrow of
+            // `state`), invoked with the current `ui`, then put back. This
+            // take/replace pattern sidesteps borrow conflicts so the closure
+            // can freely touch `ui` (and its own captured handles) without
+            // aliasing the `&mut AppState` the render fn holds.
+            let field = syn::Ident::new(&content, proc_macro2::Span::call_site());
+            quote! {
+                if let Some(mut __slot) = #state_ref.#field.take() {
+                    __slot(ui);
+                    #state_ref.#field = Some(__slot);
+                }
             }
         }
     };
