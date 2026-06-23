@@ -45,6 +45,7 @@ The event loop uses index-based iteration (`while event_idx < events.len()`) ins
 | Selectable | `[selectable](field){config}` | `usize` | `0` |
 | Select | `[select](index){list_field}` | `usize` + `Vec<String>` | `0`, `Vec::new()` |
 | Display | `[display](field){config}` | `String` (self-declares) | `String::new()` |
+| Custom | `[custom](slot)` | `Option<Box<dyn FnMut(&mut egui::Ui) + Send + Sync>>` | `None` |
 | Foreach | `::: foreach field` ... `:::` | `Vec<RowStruct>` | `Vec::new()` |
 
 ## Double Slider (3rd-party: egui_double_slider)
@@ -242,6 +243,53 @@ state.messages.push("The goblin hits you!".into());
 ```
 
 Unlike `[foreach]`, log takes plain strings — no row struct, no `{field}` references. Uses `egui::ScrollArea::vertical().stick_to_bottom(true)`.
+
+## Custom Escape Hatch
+
+`[custom](slot)` is the escape hatch for rendering arbitrary egui that the markdown DSL can't express. The link text is literally `custom` and the destination is the slot identifier:
+
+```markdown
+[custom](demo_slot)
+```
+
+This generates a slot field on the state struct that the app fills in with a closure:
+
+```rust
+state.demo_slot = Some(Box::new(|ui| {
+    ui.label("custom egui here");
+    let _ = ui.button("native");
+}));
+```
+
+### Generated field type
+
+```rust
+pub demo_slot: Option<Box<dyn FnMut(&mut egui::Ui) + Send + Sync>>  // default None
+```
+
+- **`Send + Sync` is required** — the generated state struct is intended to live in a Bevy `Resource` (`Send + Sync + 'static`). egui's `Ui` is borrowed, not captured, so it does not affect the bound.
+- **`FnMut` (not `Fn`)** — the closure can mutate its own captured state across frames (e.g. a frame counter, or a captured `Arc<Mutex<...>>`).
+
+### Take/replace calling pattern
+
+At render time the macro emits a take/replace call:
+
+```rust
+if let Some(mut __slot) = state.demo_slot.take() {
+    __slot(ui);
+    state.demo_slot = Some(__slot);
+}
+```
+
+Taking the closure out of the `Option` ends the mutable borrow of `state` before the closure runs, so the closure can freely touch `ui` (and any state it captured) without aliasing the `&mut AppState` the render fn holds. An unset slot (`None`) renders nothing without panicking.
+
+### Derives dropped when a slot is present
+
+A `Box<dyn FnMut>` is neither `Clone` nor `Debug`. When **any** custom slot exists, the generated state struct (`MdFormState` or `AppState`) drops its `#[derive(Clone, Debug)]`.
+
+### Whole-page-as-slot
+
+A page whose entire body is just `[custom](panel_slot)` is valid — the whole page becomes a bespoke egui panel living as a litui page. See `examples/13_custom/` (`content/panel.md`), which captures a mutable frame counter to prove `FnMut`.
 
 ## Dynamic Styling
 

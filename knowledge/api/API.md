@@ -69,13 +69,14 @@ parent: "content/_app.md",
 pub(crate) fn load_and_parse_md(
     path: &str,
     parent: Option<&Frontmatter>,
+    source_span: proc_macro2::Span,
 ) -> Result<(Frontmatter, ParsedMarkdown), proc_macro2::TokenStream>
 ```
 
 Read a markdown file and parse it into structured data.
 Returns (frontmatter, parsed_markdown) or a compile error.
 
-#### `include_markdown_ui` (line 110)
+#### `include_markdown_ui` (line 107)
 
 ```rust
 pub fn include_markdown_ui(input: proc_macro::TokenStream) -> proc_macro::TokenStream
@@ -83,7 +84,7 @@ pub fn include_markdown_ui(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
 Macro to include markdown as egui UI code.
 
-#### `define_markdown_app` (line 140)
+#### `define_markdown_app` (line 159)
 
 ```rust
 pub fn define_markdown_app(input: proc_macro::TokenStream) -> proc_macro::TokenStream
@@ -137,7 +138,7 @@ See `knowledge/frontmatter-and-styles.md` for the full style system design.
 
 ### Structs
 
-#### `Frontmatter` (line 32)
+#### `Frontmatter` (line 33)
 
 ```rust
 pub(crate) struct Frontmatter {
@@ -158,7 +159,7 @@ Contains optional page metadata (for `define_markdown_app!`), a map of named
 style presets referenced via `::key` suffixes and `::key(text)` inline spans, and a
 map of widget configurations referenced via `{config}` after widget directives.
 
-#### `SpacingDef` (line 48)
+#### `SpacingDef` (line 50)
 
 ```rust
 pub(crate) struct SpacingDef {
@@ -184,7 +185,7 @@ Spacing overrides for the generated UI.
 All values are in pixels. When absent, built-in defaults are used:
 paragraph 8, heading H1 16 / H2 12 / H3 8 / H4+ 4, table 8.
 
-#### `PageDef` (line 71)
+#### `PageDef` (line 74)
 
 ```rust
 pub(crate) struct PageDef {
@@ -214,7 +215,7 @@ Required for each file passed to `define_markdown_app!`. Provides the
 enum variant name, the UI label for navigation, and whether this page
 is the default (exactly one page must set `default: true`).
 
-#### `WidgetDef` (line 101)
+#### `WidgetDef` (line 105)
 
 ```rust
 pub(crate) struct WidgetDef {
@@ -254,7 +255,7 @@ Not all fields apply to every widget type:
 - `hint` -- textedit placeholder hint text
 - `format` -- display widget format string (e.g., `"{:.1}"`)
 
-#### `StyleDef` (line 138)
+#### `StyleDef` (line 143)
 
 ```rust
 pub(crate) struct StyleDef {
@@ -292,7 +293,7 @@ an overlay's `Some` values override the base, while `None` inherits.
 - `monospace` -- use monospace font instead of body font
 - `weak` -- render with weak (dimmed) text color
 
-#### `ParsedSelector` (line 235)
+#### `ParsedSelector` (line 240)
 
 ```rust
 pub(crate) struct ParsedSelector {
@@ -312,7 +313,7 @@ composed left-to-right via [`merge_style_defs()`])
 
 ### Functions
 
-#### `merge_frontmatter` (line 164)
+#### `merge_frontmatter` (line 169)
 
 ```rust
 pub(crate) fn merge_frontmatter(parent: &Frontmatter, child: Frontmatter) -> Frontmatter
@@ -320,7 +321,7 @@ pub(crate) fn merge_frontmatter(parent: &Frontmatter, child: Frontmatter) -> Fro
 
 Merge parent and child frontmatter. Child values override parent on key collision.
 
-#### `merge_spacing_defs` (line 188)
+#### `merge_spacing_defs` (line 193)
 
 ```rust
 pub(crate) fn merge_spacing_defs(parent: &SpacingDef, child: &SpacingDef) -> SpacingDef
@@ -328,7 +329,7 @@ pub(crate) fn merge_spacing_defs(parent: &SpacingDef, child: &SpacingDef) -> Spa
 
 Merge two SpacingDefs. Child's `Some` fields override parent.
 
-#### `merge_style_defs` (line 201)
+#### `merge_style_defs` (line 206)
 
 ```rust
 pub(crate) fn merge_style_defs(base: &StyleDef, overlay: &StyleDef) -> StyleDef
@@ -336,7 +337,7 @@ pub(crate) fn merge_style_defs(base: &StyleDef, overlay: &StyleDef) -> StyleDef
 
 Merge two StyleDefs. Overlay's `Some` fields override base.
 
-#### `parse_selectors` (line 243)
+#### `parse_selectors` (line 248)
 
 ```rust
 pub(crate) fn parse_selectors(link_text: &str) -> ParsedSelector
@@ -345,15 +346,18 @@ pub(crate) fn parse_selectors(link_text: &str) -> ParsedSelector
 Parse CSS-like selectors from link text: `"button#id.class1.class2"` →
 `ParsedSelector { base_name: "button", id: Some("id"), classes: ["class1", "class2"] }`
 
-#### `resolve_classes` (line 288)
+#### `resolve_classes` (line 293)
 
 ```rust
-pub(crate) fn resolve_classes(classes: &[String], frontmatter: &Frontmatter) -> Option<StyleDef>
+pub(crate) fn resolve_classes(
+    classes: &[String],
+    frontmatter: &Frontmatter,
+) -> Result<Option<StyleDef>, proc_macro2::TokenStream>
 ```
 
-Resolve class names into a merged StyleDef. Panics at compile time on undefined classes.
+Resolve class names into a merged StyleDef. Returns compile error on undefined classes.
 
-#### `strip_frontmatter` (line 305)
+#### `strip_frontmatter` (line 316)
 
 ```rust
 pub(crate) fn strip_frontmatter(content: &str) -> (&str, &str)
@@ -362,7 +366,7 @@ pub(crate) fn strip_frontmatter(content: &str) -> (&str, &str)
 Split content into (yaml_frontmatter, remaining_markdown).
 Returns ("", content) if no frontmatter is present.
 
-#### `parse_hex_color` (line 342)
+#### `parse_hex_color` (line 353)
 
 ```rust
 pub(crate) fn parse_hex_color(s: &str) -> Result<[u8; 3], String>
@@ -370,7 +374,7 @@ pub(crate) fn parse_hex_color(s: &str) -> Result<[u8; 3], String>
 
 Parse "#RRGGBB" hex color to [r, g, b].
 
-#### `detect_style_suffix` (line 357)
+#### `detect_style_suffix` (line 368)
 
 ```rust
 pub(crate) fn detect_style_suffix(text: &str) -> (&str, Option<&str>)
@@ -379,7 +383,7 @@ pub(crate) fn detect_style_suffix(text: &str) -> (&str, Option<&str>)
 Check if text ends with a `::key` style suffix. Returns (trimmed_text, Some(key)) or (text, None).
 The key may start with `$` for runtime style references (e.g., `::$hp_style`).
 
-#### `style_def_to_label_tokens` (line 374)
+#### `style_def_to_label_tokens` (line 385)
 
 ```rust
 pub(crate) fn style_def_to_label_tokens(
@@ -388,7 +392,7 @@ pub(crate) fn style_def_to_label_tokens(
     base_bold: bool,
     base_italic: bool,
     base_strikethrough: bool,
-) -> proc_macro2::TokenStream
+) -> Result<proc_macro2::TokenStream, proc_macro2::TokenStream>
 ```
 
 Emit tokens for a `styled_label_rich()` call using a resolved `StyleDef`.
@@ -420,7 +424,7 @@ See `knowledge/pulldown-cmark-0.9.md` for the event model and
 
 ### Structs
 
-#### `BlockFrame` (line 155)
+#### `BlockFrame` (line 167)
 
 ```rust
 struct BlockFrame {
@@ -432,7 +436,7 @@ struct BlockFrame {
 
 A stack frame for a `:::` block directive.
 
-#### `ParsedMarkdown` (line 164)
+#### `ParsedMarkdown` (line 176)
 
 ```rust
 pub(crate) struct ParsedMarkdown {
@@ -444,6 +448,8 @@ pub(crate) struct ParsedMarkdown {
     pub(crate) display_refs: Vec<String>,
     /// Generated style lookup function tokens (when dynamic styling is used).
     pub(crate) style_table: Option<proc_macro2::TokenStream>,
+    /// Widget config keys referenced via `{key}` in widget directives.
+    pub(crate) used_widget_configs: std::collections::HashSet<String>,
 }
 ```
 
@@ -478,13 +484,17 @@ pub(crate) enum WidgetField {
         name: String,
         row_fields: Vec<String>,
     },
+    /// Custom escape hatch: `[custom](slot)` — generates a
+    /// `Option<Box<dyn FnMut(&mut egui::Ui) + Send + Sync>>` field that the
+    /// user fills in to draw raw egui at that location.
+    CustomSlot { name: String },
 }
 ```
 
 A widget field discovered during parsing. Collected into a generated
 state struct (`MdFormState` or `AppState`).
 
-#### `BlockDirective` (line 137)
+#### `BlockDirective` (line 149)
 
 ```rust
 enum BlockDirective {
@@ -509,7 +519,16 @@ The type of block directive opened by `:::`.
 
 ### Functions
 
-#### `parse_inline_styled_spans` (line 188)
+#### `is_custom_slot` (line 141)
+
+```rust
+    pub fn is_custom_slot(&self) -> bool
+```
+
+True for `[custom](slot)` fields, which hold a boxed closure and
+therefore cannot derive `Clone`/`Debug` on the state struct.
+
+#### `parse_inline_styled_spans` (line 202)
 
 ```rust
 fn parse_inline_styled_spans(
@@ -519,17 +538,18 @@ fn parse_inline_styled_spans(
     bold: bool,
     italic: bool,
     strikethrough: bool,
-) -> bool
+    source_span: proc_macro2::Span,
+) -> Result<bool, proc_macro2::TokenStream>
 ```
 
 Scan text for `::class(text)` inline styled span patterns.
 Splits into alternating Styled and Widget (styled_label_rich) fragments.
 Returns true if any spans were found and processed.
 
-#### `markdown_to_egui` (line 274)
+#### `md_error` (line 292)
 
 ```rust
-pub(crate) fn markdown_to_egui(content: &str, frontmatter: &Frontmatter) -> ParsedMarkdown
+fn md_error(span: proc_macro2::Span, msg: impl std::fmt::Display) -> proc_macro2::TokenStream
 ```
 
 Parse markdown content into a [`ParsedMarkdown`] using the pulldown-cmark event loop.
@@ -542,7 +562,7 @@ flushed into `TokenStream` code at block boundaries.
 The `frontmatter` parameter provides style and widget definitions for
 `::key` suffix and `::key(text)` inline span resolution during code generation.
 
-#### `emit_paragraph` (line 388)
+#### `emit_paragraph` (line 425)
 
 ```rust
     fn emit_paragraph(
@@ -551,7 +571,8 @@ The `frontmatter` parameter provides style and widget definitions for
         blockquote_depth: usize,
         frontmatter: &Frontmatter,
         paragraph_spacing: f32,
-    ) -> Option<String>
+        source_span: proc_macro2::Span,
+    ) -> Result<Option<String>, proc_macro2::TokenStream>
 ```
 
 Emit accumulated fragments as an inline-wrapped paragraph.
@@ -559,7 +580,7 @@ If the last fragment ends with `::key`, apply the frontmatter style to all fragm
 Returns `Some(field_name)` when a runtime `::$field` suffix was found,
 signalling the caller to wrap the emitted code in a style override block.
 
-#### `emit_list_item` (line 520)
+#### `emit_list_item` (line 565)
 
 ```rust
     fn emit_list_item(
@@ -568,7 +589,8 @@ signalling the caller to wrap the emitted code in a style override block.
         list_stack: &mut [Option<usize>],
         blockquote_depth: usize,
         frontmatter: &Frontmatter,
-    ) -> Option<String>
+        source_span: proc_macro2::Span,
+    ) -> Result<Option<String>, proc_macro2::TokenStream>
 ```
 
 Emit accumulated fragments as a list item (bullet or numbered).
@@ -577,7 +599,7 @@ If the last fragment ends with `::key`, the style's color is applied to the
 bullet/number prefix and all text fragments get the full style treatment.
 Returns `Some(field_name)` when a runtime `::$field` suffix was found.
 
-#### `parse_foreach_text` (line 763)
+#### `parse_foreach_text` (line 816)
 
 ```rust
     fn parse_foreach_text(
@@ -595,7 +617,7 @@ fragments. Used inside foreach blocks for field substitution.
 
 ### Constants
 
-#### `WIDGET_NAMES` (line 814)
+#### `WIDGET_NAMES` (line 867)
 
 ```rust
 const WIDGET_NAMES: &[&str] = &[
@@ -617,6 +639,7 @@ const WIDGET_NAMES: &[&str] = &[
         "selectable",
         "select",
         "log",
+        "custom",
     ];
 ```
 
@@ -624,7 +647,7 @@ Known widget names that intercept link syntax.
 To add a new widget: add its name here, then add a match arm in the
 `End(Link)` handler below.
 
-#### `OPTIONS` (line 1600)
+#### `OPTIONS` (line 1619)
 
 ```rust
 const OPTIONS: &[&str] = &[#(#options),*];
@@ -652,7 +675,7 @@ and an `MdApp` struct with `show_nav()` and `show_page()` methods.
 
 ### Structs
 
-#### `AppInput` (line 168)
+#### `AppInput` (line 191)
 
 ```rust
 struct AppInput {
@@ -681,7 +704,7 @@ fn widget_field_tokens(
 Generate field definition tokens for a WidgetField, handling foreach row structs.
 Returns (field_def, field_default, optional_row_struct).
 
-#### `parsed_to_include_tokens` (line 88)
+#### `parsed_to_include_tokens` (line 101)
 
 ```rust
 pub(crate) fn parsed_to_include_tokens(parsed: ParsedMarkdown) -> proc_macro2::TokenStream
@@ -693,7 +716,7 @@ When `widget_fields` is empty, emits a simple closure `|ui: &mut egui::Ui| { ...
 When stateful widgets are present, emits a `MdFormState` struct with `Default`,
 a render function, and returns the tuple `(__md_render, MdFormState::default())`.
 
-#### `to_snake_case` (line 151)
+#### `to_snake_case` (line 174)
 
 ```rust
 fn to_snake_case(s: &str) -> String
@@ -701,7 +724,7 @@ fn to_snake_case(s: &str) -> String
 
 Convert a PascalCase name to snake_case.
 
-#### `define_markdown_app_impl` (line 214)
+#### `define_markdown_app_impl` (line 237)
 
 ```rust
 pub(crate) fn define_markdown_app_impl(
@@ -720,7 +743,7 @@ widget references, and generates:
 - Per-page `render_{snake_name}()` functions
 - `MdApp` struct with `show_nav()` and `show_page()`
 
-#### `show_all` (line 702)
+#### `show_all` (line 769)
 
 ```rust
             pub fn show_all(&mut self, ctx: &egui::Context)

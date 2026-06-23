@@ -117,6 +117,24 @@ Each key is referenced by `{key}` after a widget link.
 | Display | `display` | `String` (self-declares) | `String::new()` | Read-only; self-declares if no input widget owns the field |
 | Spinner | `spinner` | none | — | Stateless |
 | Log | `log` | `Vec<String>` | `Vec::new()` | Scrollable, stick-to-bottom |
+| Custom | `custom` | `Option<Box<dyn FnMut(&mut egui::Ui) + Send + Sync>>` | `None` | Escape hatch; see below |
+
+### `[custom](slot)` escape hatch
+
+A markdown link whose **text is literally `custom`** and whose destination is the slot identifier: `[custom](slot_name)`. It emits a slot the app fills in with arbitrary egui rendering.
+
+- Generates `pub slot_name: Option<Box<dyn FnMut(&mut egui::Ui) + Send + Sync>>` on the state struct, default `None`.
+- `Send + Sync` is **required**: the generated state struct is intended to live in a Bevy `Resource`.
+- `FnMut` (not `Fn`) lets the closure mutate its own captured state across frames.
+- Render uses a **take/replace** pattern: the closure is taken out of the `Option`, called with the current `ui`, then put back, so the state struct stays movable and free of aliasing borrows.
+- When any custom slot is present, the generated state struct **drops its `Clone`/`Debug` derives** (a boxed closure is neither).
+- A page whose entire body is `[custom](slot)` works (whole-page-as-slot).
+
+```rust
+state.slot_name = Some(Box::new(|ui| { ui.label("raw egui"); }));
+```
+
+See `examples/13_custom/`.
 
 ---
 

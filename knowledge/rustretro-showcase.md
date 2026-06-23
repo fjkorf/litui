@@ -26,11 +26,11 @@ list/form/display — litui owns them. A *framebuffer view* is generic ("show an
 spatially custom-painted — it stays bespoke. Stating the boundary this way matters for showcase
 integrity: it shows litui handling domain-specific screens, not just the boring chrome.
 
-## Two features RustRetro drives (and litui must build)
+## Two features RustRetro drives
 
-### 1. The `[custom]` escape hatch — the linchpin
+### 1. The `[custom]` escape hatch — the linchpin — BUILT
 
-A directive that invokes a user-supplied `FnMut(&mut egui::Ui)` stored on `AppState`:
+A directive that invokes a user-supplied closure stored on the generated state struct:
 
 ```markdown
 [custom](framebuffer_slot)
@@ -45,9 +45,19 @@ It is **doubly load-bearing**:
   Without this, litui cannot own the shell while hosting an app's custom panels; with it, the
   bespoke panels are just slots in the nav and litui owns the frame.
 
-Open question / risk: lifetimes of a `FnMut` held on a macro-generated `AppState` across the
-proc-macro boundary. **Prototype before RustRetro commits to the migration** — if this is hard,
-the whole "litui owns the frame" claim is at risk. Relates to
+**Resolved (it works).** The slot is stored as
+`Option<Box<dyn FnMut(&mut egui::Ui) + Send + Sync>>` on the generated state struct. The
+`Send + Sync` bound is required because the state struct is meant to live in a Bevy `Resource`;
+the closure is `FnMut` (not `Fn`) so it can mutate its captures. Because a boxed closure is
+neither `Clone` nor `Debug`, those derives are dropped from the generated state whenever a
+custom slot is present. At runtime the macro uses a **take/replace** calling pattern — take the
+closure out of the `Option`, call it, put it back — to satisfy the borrow checker across the
+proc-macro boundary. The earlier lifetime concern is closed.
+
+Proven on the full Bevy stack (bevy 0.18 / bevy_egui 0.39 / egui 0.33) via
+`examples/13_custom/`, with 2 passing headless tests, including the **whole-page-as-slot** case:
+`examples/13_custom/content/panel.md` is a page whose entire body is just
+`[custom](panel_slot)`. Relates to
 [`third-party-widgets.md`](third-party-widgets.md) (manual-integration pattern).
 
 ### 2. Live-resource binding in the Bevy path
@@ -73,6 +83,26 @@ RustRetro currently lags litui (egui 0.31 vs 0.33; bevy 0.15 vs 0.18). Binding a
 litui couples it to litui's egui cadence. litui should ship a stable-ish release with a stated
 **minimum supported egui** (and ideally CI against two versions) so a litui egui bump doesn't
 force-march every consumer. This is a prerequisite for litui being credible beyond demos.
+
+## Deferred: parser-crate refactor
+
+A parser-crate extraction was started and then **intentionally deferred** — it is future work,
+**not** part of the shippable baseline. The following artifacts are parked, not live:
+
+- `crates/markdown_to_egui_parser/` — the extracted parser crate. It is a workspace member but
+  is **not consumed** by the shippable pipeline.
+- `crates/markdown_to_egui_macro/src/_codegen.rs` — the refactor-target codegen, parked and
+  underscore-prefixed so it is not in the module tree.
+- `git stash@{0}` — the wiring that would swap `parse.rs` over to emit parser-crate types.
+- the grammar test harness (`tests/grammar_harness.rs` + `tests/grammar_cases/`) — removed from
+  the tree because it tests a public `parse_markdown` parser API that can only exist after the
+  refactor (a proc-macro crate can't export callable `pub fn`s).
+
+Finishing the refactor would take: implement the stubbed pieces (`lib.rs` currently returns an
+empty `ParsedMarkdown`; `_codegen.rs`'s `show_all` are stubs), port the `WidgetField::CustomSlot`
+variant into the parser crate's `WidgetField` (it currently has only `Stateful`), apply
+`stash@{0}`, then restore the grammar harness against the now-public
+`markdown_to_egui_parser::parse_markdown`.
 
 ## Showcase integrity
 
