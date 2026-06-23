@@ -130,7 +130,7 @@ token output that `codegen.rs` consumes.
 
 ### Structs
 
-#### `ParsedMarkdown` (line 111)
+#### `ParsedMarkdown` (line 124)
 
 ```rust
 pub(crate) struct ParsedMarkdown {
@@ -202,11 +202,27 @@ pub(crate) enum WidgetField {
         row_fields: Vec<RowField>,
         is_tree: bool,
     },
+    /// Custom escape hatch: `[custom](slot)` — generates an
+    /// `Option<Box<dyn FnMut(&mut egui::Ui) + Send + Sync>>` field. The boxed
+    /// closure is neither `Clone` nor `Debug`, so any state struct containing
+    /// one must drop `#[derive(Clone, Debug)]`.
+    CustomSlot { name: String },
 }
 ```
 
 A widget field discovered during parsing. Collected into a generated
 state struct (`LituiFormState` or `AppState`).
+
+### Functions
+
+#### `is_custom_slot` (line 113)
+
+```rust
+    pub fn is_custom_slot(&self) -> bool
+```
+
+True for `[custom](slot)` fields, which hold a boxed closure and
+therefore cannot derive `Clone`/`Debug` on the state struct.
 
 ## `crates/litui_macro/src/codegen.rs`
 
@@ -223,7 +239,7 @@ and a `LituiApp` struct with `show_nav()` and `show_page()` methods.
 
 ### Structs
 
-#### `AppInput` (line 254)
+#### `AppInput` (line 276)
 
 ```rust
 struct AppInput {
@@ -276,7 +292,7 @@ fn widget_field_tokens(
 Generate field definition tokens for a `WidgetField`, handling foreach row structs.
 Returns (`field_def`, `field_default`, `optional_row_struct`).
 
-#### `parsed_to_include_tokens` (line 173)
+#### `parsed_to_include_tokens` (line 186)
 
 ```rust
 pub(crate) fn parsed_to_include_tokens(parsed: ParsedMarkdown) -> proc_macro2::TokenStream
@@ -288,7 +304,7 @@ When `widget_fields` is empty, emits a simple closure `|ui: &mut egui::Ui| { ...
 When stateful widgets are present, emits a `LituiFormState` struct with `Default`,
 a render function, and returns the tuple `(__md_render, LituiFormState::default())`.
 
-#### `to_snake_case` (line 237)
+#### `to_snake_case` (line 259)
 
 ```rust
 fn to_snake_case(s: &str) -> String
@@ -296,7 +312,7 @@ fn to_snake_case(s: &str) -> String
 
 Convert a `PascalCase` name to `snake_case`.
 
-#### `define_litui_app_impl` (line 300)
+#### `define_litui_app_impl` (line 322)
 
 ```rust
 pub(crate) fn define_litui_app_impl(
@@ -315,7 +331,7 @@ widget references, and generates:
 - Per-page `render_{snake_name}()` functions
 - `LituiApp` struct with `show_nav()` and `show_page()`
 
-#### `show_all` (line 973)
+#### `show_all` (line 1004)
 
 ```rust
             pub fn show_all(&mut self, ctx: &egui::Context)
@@ -326,7 +342,7 @@ Side panels are always visible. Windows appear for the current page.
 If any pages lack a `panel:` directive, a central panel dispatches them.
 When all pages have explicit panels, no central panel is emitted.
 
-#### `generate_theme_setup` (line 1073)
+#### `generate_theme_setup` (line 1104)
 
 ```rust
 fn generate_theme_setup(theme: &Option<ThemeDef>) -> Option<proc_macro2::TokenStream>

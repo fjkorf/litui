@@ -969,6 +969,21 @@ pub fn parse_document(content: &str, frontmatter: &Frontmatter) -> Result<Docume
                             WidgetKind::Datepicker => {
                                 new_fields.push((content.clone(), WidgetType::Date));
                             }
+                            WidgetKind::Custom => {
+                                // Escape hatch: register an
+                                // `Option<Box<dyn FnMut(&mut Ui) + Send + Sync>>`
+                                // slot on the state struct. Custom slots have no
+                                // Rust value type, so they bypass `new_fields`
+                                // (the `(name, WidgetType)` path) and are pushed
+                                // directly to `widget_fields`, deduped by name.
+                                references_state = true;
+                                let already = widget_fields.iter().any(|f| f.name() == content);
+                                if !already {
+                                    widget_fields.push(WidgetField::CustomSlot {
+                                        name: content.clone(),
+                                    });
+                                }
+                            }
                         }
 
                         // Route fields: foreach row_fields or top-level widget_fields

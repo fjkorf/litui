@@ -649,7 +649,7 @@ fn foreach_styled() {
 #[test]
 fn datepicker_widget() {
     let (render, mut state) = include_litui_ui!("fixtures/datepicker.md");
-    state.chosen_date = chrono::NaiveDate::from_ymd_opt(2026, 6, 15).unwrap();
+    state.chosen_date = jiff::civil::date(2026, 6, 15);
     let width = 800.0;
     let mut harness = Harness::builder()
         .with_size(egui::vec2(width, 600.0))

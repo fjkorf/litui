@@ -32,7 +32,7 @@ impl WidgetType {
             Self::String => quote! { String },
             Self::ByteArray4 => quote! { [u8; 4] },
             Self::VecString => quote! { Vec<String> },
-            Self::Date => quote! { chrono::NaiveDate },
+            Self::Date => quote! { jiff::civil::Date },
         }
     }
 
@@ -45,7 +45,7 @@ impl WidgetType {
             Self::String => quote! { String::new() },
             Self::ByteArray4 => quote! { [255, 255, 255, 255] },
             Self::VecString => quote! { Vec::new() },
-            Self::Date => quote! { chrono::NaiveDate::default() },
+            Self::Date => quote! { jiff::civil::Date::default() },
         }
     }
 }
@@ -85,20 +85,33 @@ pub(crate) enum WidgetField {
         row_fields: Vec<RowField>,
         is_tree: bool,
     },
+    /// Custom escape hatch: `[custom](slot)` — generates an
+    /// `Option<Box<dyn FnMut(&mut egui::Ui) + Send + Sync>>` field. The boxed
+    /// closure is neither `Clone` nor `Debug`, so any state struct containing
+    /// one must drop `#[derive(Clone, Debug)]`.
+    CustomSlot { name: String },
 }
 
 impl WidgetField {
     pub fn name(&self) -> &str {
         match self {
-            Self::Stateful { name, .. } | Self::Foreach { name, .. } => name,
+            Self::Stateful { name, .. }
+            | Self::Foreach { name, .. }
+            | Self::CustomSlot { name } => name,
         }
     }
 
     pub fn ty(&self) -> Option<WidgetType> {
         match self {
             Self::Stateful { ty, .. } => Some(*ty),
-            Self::Foreach { .. } => None,
+            Self::Foreach { .. } | Self::CustomSlot { .. } => None,
         }
+    }
+
+    /// True for `[custom](slot)` fields, which hold a boxed closure and
+    /// therefore cannot derive `Clone`/`Debug` on the state struct.
+    pub fn is_custom_slot(&self) -> bool {
+        matches!(self, Self::CustomSlot { .. })
     }
 }
 

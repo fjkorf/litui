@@ -162,6 +162,19 @@ fn widget_field_tokens(
                 Some(combined),
             )
         }
+        WidgetField::CustomSlot { name } => {
+            let ident = syn::Ident::new(name, proc_macro2::Span::call_site());
+            // The `Send + Sync` bound is required because the generated state
+            // struct is intended to live in a Bevy `Resource` (Send + Sync +
+            // 'static). egui's `Ui` is borrowed, not captured, so it does not
+            // affect the bound. `FnMut` allows the closure to mutate its own
+            // captured state across frames.
+            (
+                quote! { pub #ident: Option<Box<dyn FnMut(&mut egui::Ui) + Send + Sync>> },
+                quote! { #ident: None },
+                None,
+            )
+        }
     }
 }
 
@@ -204,13 +217,22 @@ pub(crate) fn parsed_to_include_tokens(parsed: ParsedMarkdown) -> proc_macro2::T
             }
         }
 
+        // A custom slot holds a `Box<dyn FnMut>`, which is neither `Clone` nor
+        // `Debug`. When any slot is present we drop those derives.
+        let has_custom_slot = widget_fields.iter().any(|f| f.is_custom_slot());
+        let state_derives = if has_custom_slot {
+            quote! {}
+        } else {
+            quote! { #[derive(Clone, Debug)] }
+        };
+
         quote! {
             {
                 #(#row_structs)*
 
                 #style_table
 
-                #[derive(Clone, Debug)]
+                #state_derives
                 #[allow(non_camel_case_types)]
                 pub struct LituiFormState {
                     #(#field_defs,)*
@@ -602,10 +624,19 @@ pub(crate) fn define_litui_app_impl(
             }
         }
 
+        // A custom slot holds a `Box<dyn FnMut>`, which is neither `Clone` nor
+        // `Debug`. When any slot is present we drop those derives.
+        let has_custom_slot = all_widget_fields.iter().any(|f| f.is_custom_slot());
+        let state_derives = if has_custom_slot {
+            quote! {}
+        } else {
+            quote! { #[derive(Clone, Debug)] }
+        };
+
         quote! {
             #(#row_structs)*
 
-            #[derive(Clone, Debug)]
+            #state_derives
             pub struct AppState {
                 #(#field_defs,)*
             }

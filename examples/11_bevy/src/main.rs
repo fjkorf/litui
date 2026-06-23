@@ -15,8 +15,10 @@ mod pages {
 
 use pages::*;
 
-impl Resource for Page {}
-impl Resource for AppState {}
+#[derive(Resource, Default)]
+struct PageRes(Page);
+#[derive(Resource, Default)]
+struct AppStateRes(AppState);
 
 fn main() {
     App::new()
@@ -28,8 +30,8 @@ fn main() {
             ..default()
         }))
         .add_plugins(EguiPlugin::default())
-        .init_resource::<Page>()
-        .init_resource::<AppState>()
+        .init_resource::<PageRes>()
+        .init_resource::<AppStateRes>()
         .add_systems(Startup, setup)
         .add_systems(EguiPrimaryContextPass, (render_nav, render_page).chain())
         .run();
@@ -39,13 +41,13 @@ fn setup(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
 }
 
-fn render_nav(mut ctxs: EguiContexts<'_, '_>, mut current: ResMut<'_, Page>) -> Result {
+fn render_nav(mut ctxs: EguiContexts<'_, '_>, mut current: ResMut<'_, PageRes>) -> Result {
     egui_extras::install_image_loaders(ctxs.ctx_mut()?);
     egui::TopBottomPanel::top("nav").show(ctxs.ctx_mut()?, |ui| {
         ui.horizontal(|ui| {
             for &p in Page::ALL {
-                if ui.selectable_label(*current == p, p.label()).clicked() {
-                    *current = p;
+                if ui.selectable_label(current.0 == p, p.label()).clicked() {
+                    current.0 = p;
                 }
             }
         });
@@ -55,13 +57,13 @@ fn render_nav(mut ctxs: EguiContexts<'_, '_>, mut current: ResMut<'_, Page>) -> 
 
 fn render_page(
     mut ctxs: EguiContexts<'_, '_>,
-    current: Res<'_, Page>,
-    mut state: ResMut<'_, AppState>,
+    current: Res<'_, PageRes>,
+    mut state: ResMut<'_, AppStateRes>,
 ) -> Result {
     egui::CentralPanel::default().show(ctxs.ctx_mut()?, |ui| {
-        egui::ScrollArea::vertical().show(ui, |ui| match *current {
-            Page::About => render_about(ui, &state),
-            Page::Form => render_form(ui, &mut state),
+        egui::ScrollArea::vertical().show(ui, |ui| match current.0 {
+            Page::About => render_about(ui, &state.0),
+            Page::Form => render_form(ui, &mut state.0),
         });
     });
     Ok(())

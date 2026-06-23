@@ -177,7 +177,7 @@ nav:
 [WIDGET_NAME#id.class1.class2](content){config}
 ```
 
-- **`WIDGET_NAME`** -- one of the 19 names below (case-sensitive)
+- **`WIDGET_NAME`** -- one of the 20 names below (case-sensitive)
 - **`#id`** -- optional, sets `egui::Id` via `ui.push_id()`
 - **`.class`** -- optional, resolved against `styles:` in frontmatter; multiple classes compose left-to-right
 - **`(content)`** -- state field name or literal value; spaces via `<angle brackets>` or underscores
@@ -203,7 +203,51 @@ nav:
 | Display | `display` | `String` (self-declares) | `String::new()` | Read-only; self-declares if no input widget owns the field |
 | Spinner | `spinner` | none | — | Stateless |
 | Log | `log` | `Vec<String>` | `Vec::new()` | Scrollable, stick-to-bottom |
-| Datepicker | `datepicker` | `chrono::NaiveDate` | `NaiveDate::default()` | Calendar popup; requires `egui_extras` with `datepicker` feature + `chrono` |
+| Datepicker | `datepicker` | `jiff::civil::Date` | `Date::default()` | Calendar popup; requires `egui_extras` with `datepicker` feature + `jiff` |
+| Custom | `custom` | `Option<Box<dyn FnMut(&mut egui::Ui) + Send + Sync>>` | `None` | Escape hatch — user-supplied closure draws raw egui; see Custom Slot below |
+
+> `custom` brings the widget name count to 20.
+
+### Custom Slot (`[custom](slot)`)
+
+The escape hatch for raw egui inside a litui page. `[custom](slot_name)` emits a
+field on the generated state struct:
+
+```rust
+pub slot_name: Option<Box<dyn FnMut(&mut egui::Ui) + Send + Sync>>,
+```
+
+(`LituiFormState` for `include_litui_ui!`, `AppState` for `define_litui_app!`.)
+
+The render function invokes it each frame via take/replace, so an unset slot
+(`None`) draws nothing and never panics:
+
+```rust
+if let Some(mut __slot) = state.slot_name.take() {
+    __slot(ui);
+    state.slot_name = Some(__slot);
+}
+```
+
+- **`FnMut`** (not `Fn`) lets the closure mutate its own captures across frames.
+- **`Send + Sync`** is required so the state struct can live in a Bevy `Resource`.
+- When **any** custom slot is present, the generated state struct **drops its
+  `#[derive(Clone, Debug)]`** — a boxed `FnMut` is neither `Clone` nor `Debug`.
+- **Whole-page-as-slot** is just a page whose body is a single `[custom](slot)`,
+  turning a litui "page" into a fully bespoke egui panel.
+
+Fill the slot from code:
+
+```rust
+state.slot_name = Some(Box::new(|ui| {
+    ui.label("raw egui here");
+    let _ = ui.button("native");
+}));
+```
+
+See `examples/13_custom/` (inline `[custom](demo_slot)` plus a whole-page
+`content/panel.md` that is only `[custom](panel_slot)`), proven by 2 headless
+tests.
 
 ---
 
