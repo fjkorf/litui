@@ -5,3 +5,6 @@
 /.*.json
 /.vscode
 .idea/
+
+# Machine-specific cargo config (e.g. target-dir on an external volume)
+/.cargo/
