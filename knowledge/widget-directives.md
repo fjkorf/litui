@@ -46,6 +46,7 @@ The event loop uses index-based iteration (`while event_idx < events.len()`) ins
 | Select | `[select](index){list_field}` | `usize` + `Vec<String>` | `0`, `Vec::new()` |
 | Display | `[display](field){config}` | `String` (self-declares) | `String::new()` |
 | Datepicker | `[datepicker](field)` | `jiff::civil::Date` | `Date::default()` |
+| Custom | `[custom](slot)` | `Option<Box<dyn FnMut(&mut egui::Ui) + Send + Sync>>` | `None` |
 | Foreach | `::: foreach field` ... `:::` | `Vec<RowStruct>` | `Vec::new()` |
 
 ## Double Slider (3rd-party: egui_double_slider)
@@ -260,6 +261,81 @@ jiff = "0.2"
 ```
 
 The widget emits `ui.add(egui_extras::DatePickerButton::new(&mut state.due_date))`.
+
+## Custom Widget (escape hatch)
+
+`[custom](slot_name)` is the escape hatch for drawing **raw egui** inline with
+Markdown when no built-in directive fits. It emits a field on the generated state
+struct holding a user-supplied closure:
+
+```markdown
+[custom](demo_slot)
+```
+
+Generates (on `LituiFormState` for `include_litui_ui!`, or `AppState` for
+`define_litui_app!`):
+
+```rust
+pub demo_slot: Option<Box<dyn FnMut(&mut egui::Ui) + Send + Sync>>,
+```
+
+### Render: take/replace
+
+The generated render function invokes the slot each frame via take/replace, so an
+unset slot (`None`) renders nothing and never panics:
+
+```rust
+if let Some(mut __slot) = state.demo_slot.take() {
+    __slot(ui);
+    state.demo_slot = Some(__slot);
+}
+```
+
+### The bounds matter
+
+- **`FnMut`** (not `Fn`) lets the closure mutate its own captured state across
+  frames — e.g. a frame counter, or an `Arc<Mutex<...>>` it ticks.
+- **`Send + Sync`** is required because the generated state struct can live in a
+  Bevy `Resource`.
+
+### Derive drop
+
+When a page (or any merged page in `define_litui_app!`) contains a custom slot,
+the generated state struct **drops `#[derive(Clone, Debug)]`** — a
+`Box<dyn FnMut + Send + Sync>` is neither `Clone` nor `Debug`. State structs with
+no custom slots keep the derives as before.
+
+### Whole-page-as-slot
+
+A page whose entire body is a single `[custom](slot)` becomes a fully bespoke
+egui panel hosted as a litui page — useful for embedding, say, an emulator
+viewport while keeping it inside the litui page/navigation model.
+
+```markdown
+---
+page:
+  name: Panel
+  label: Bespoke Panel
+---
+
+[custom](panel_slot)
+```
+
+### Filling the slot from code
+
+```rust
+let mut frame = 0u64;
+state.panel_slot = Some(Box::new(move |ui| {
+    frame += 1;                       // FnMut: mutate captured state
+    ui.heading("Bespoke Panel");
+    ui.label(format!("frame #{frame}"));
+}));
+```
+
+See `examples/13_custom/` for both cases (inline `[custom](demo_slot)` inside a
+Markdown page, and a whole-page `content/panel.md`), with 2 headless tests
+verifying the closure runs once per render and the slot is restored after each
+call.
 
 ## Dynamic Styling
 

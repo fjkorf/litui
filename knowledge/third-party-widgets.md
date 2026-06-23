@@ -60,7 +60,7 @@ impl<S> eframe::App for App<S> {
 - Widget state doesn't map to simple struct fields
 - 3rd-party crate targets an older egui version (semver incompatibility)
 
-**Note on version compatibility**: 3rd-party crates must target the same egui major.minor version (0.33). Crates targeting older versions (e.g., egui-multiselect targets eframe ^0.32) cause duplicate egui versions in the dependency tree, leading to type mismatches. Wait for the crate to update, or use `[patch.crates-io]` with a local/git source.
+**Note on version compatibility**: 3rd-party crates must target the same egui major.minor version (0.34). Crates targeting older versions cause duplicate egui versions in the dependency tree, leading to type mismatches. Wait for the crate to update, or use `[patch.crates-io]` with a local/git source.
 
 ## Adding a New Built-in Widget
 
@@ -75,7 +75,7 @@ To add a new 3rd-party widget as a macro directive:
 
 ## Compatibility
 
-All egui dependencies now use crates.io (v0.33). 3rd-party crates targeting egui 0.33.x work without `[patch.crates-io]`.
+All egui dependencies now use crates.io (v0.34). 3rd-party crates targeting egui 0.34.x work without `[patch.crates-io]`.
 
 ## Example
 

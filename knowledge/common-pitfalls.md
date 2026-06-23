@@ -14,7 +14,7 @@
 
 7. **`CARGO_MANIFEST_DIR` resolution** — The macro resolves file paths relative to the crate calling the macro, not the macro crate itself. Test fixtures must be relative to the test crate's manifest directory.
 
-8. **egui is from crates.io** — Migration from fjkorf/egui fork to upstream egui 0.33 is complete. All `[patch.crates-io]` overrides have been removed. `eframe::App` uses `fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame)`. Use `CentralPanel::default().show(ctx, |ui| { ... })`.
+8. **egui is from crates.io** — Migration from fjkorf/egui fork to upstream egui 0.34.3 is complete (MSRV 1.95). All `[patch.crates-io]` overrides have been removed. eframe 0.34 deprecates `App::update` in favor of a now-required `App::ui`; examples keep `update`, add an empty `ui`, and `#[allow(deprecated)]`. Use `CentralPanel::default().show(ctx, |ui| { ... })`. ~50 egui-0.34 deprecation warnings (`Panel::show` → `show_inside`, etc.) remain as deferred tech debt — non-breaking.
 
 9. **Frontmatter must be stripped before pulldown-cmark** — The `---` delimiters would be parsed as `ThematicBreak` (horizontal rules) by pulldown-cmark. Always call `strip_frontmatter()` first.
 

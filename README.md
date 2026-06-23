@@ -152,8 +152,9 @@ Step-by-step guides are built into the docs. Run `cargo doc -p litui --open` and
 | **Weighted columns** | `::: columns 3:1:1` — proportional column widths via StripBuilder |
 | **Semantic colors** | `color: strong`, `error`, `weak`, `hyperlink` — adapts to dark/light mode |
 | **Global theme config** | `theme:` section in frontmatter with `dark:`/`light:` overrides for egui Visuals |
-| **Shared state** | Flat `AppState` across pages, same-type fields shared, bevy_ecs `Resource` |
+| **Shared state** | Flat `AppState` across pages, same-type fields shared, bevy `Resource` (via newtype on Bevy 0.19) |
 | **Bevy integration** | Full Bevy app rendering via `bevy_egui` — same macro output, different runtime |
+| **Custom escape hatch** | `[custom](slot)` — user-supplied closure draws raw egui inline; whole-page-as-slot supported |
 | **ID selectors** | `[widget#id]` — `egui::Id` for state persistence |
 
 ## Frontmatter Styles
@@ -240,6 +241,7 @@ Numeric options: `integer` (snap to whole numbers), `step` (quantize), `decimals
 | `[spinner]()` | — | Loading spinner (stateless) |
 | `[select](index){list}` | `usize` + `Vec<String>` | Scrollable runtime selection list |
 | `[display](field){config}` | `String` | Read-only value display (self-declares if needed) |
+| `[custom](slot)` | `Option<Box<dyn FnMut(&mut egui::Ui) + Send + Sync>>` | Escape hatch: user closure draws raw egui inline |
 | `::: foreach field` ... `:::` | `Vec<Row>` | Iterate dynamic collections as tables/lists |
 | `::: foreach field children` ... `:::` | `Vec<Row>` | Recursive tree rendering with `children: Vec<Self>` |
 | `::: collapsing "Title"` ... `:::` | — or `bool` | Collapsible section (`CollapsingHeader`) |
@@ -259,7 +261,8 @@ egui-litui/
 │   ├── 09_dynamic/                  # Dynamic content (foreach, if, style)
 │   ├── 10_advanced/                 # Advanced widgets + selectors
 │   ├── 11_bevy/                     # Bevy integration via bevy_egui
-│   └── 12_game/                     # Full game UI vertical slice
+│   ├── 12_game/                     # Full game UI vertical slice
+│   └── 13_custom/                   # [custom](slot) escape hatch (Bevy path)
 ├── tests/snapshot_tests/            # Headless visual regression tests
 ├── knowledge/                       # Architecture docs for contributors
 └── scripts/                         # Doc generation tooling
@@ -277,9 +280,9 @@ cargo test                            # run all tests
 
 ## Dependencies
 
-- **egui/eframe** 0.33 — immediate-mode GUI (crates.io)
+- **egui/eframe** 0.34.3 — immediate-mode GUI (crates.io); MSRV 1.95, litui 0.34.0
 - **pulldown-cmark** 0.9 — Markdown parser
-- **bevy_ecs** 0.18 — standalone ECS for shared state (demo app)
+- **bevy** 0.19 / **bevy_egui** 0.40 — ECS + egui integration for shared state (Bevy examples)
 - **egui_double_slider** 1.0 — range slider widget (optional)
 - **serde/serde_yaml** — YAML frontmatter parsing
 - **syn/quote** — proc-macro infrastructure

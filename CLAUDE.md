@@ -86,6 +86,7 @@ cargo test -p litui --test generate_screenshots            # regen tutorial PNGs
 - **`10_advanced`** — All widget types, selectors, advanced button tracking
 - **`11_bevy`** — Bevy integration via bevy_egui
 - **`12_game`** — Full game UI vertical slice: chargen, inventory, monsters, stats panel
+- **`13_custom`** — `[custom](slot)` escape hatch: a custom widget inside a Markdown page plus a whole-page-as-slot, wired through the Bevy path with headless tests
 - **`snapshot_tests`** (`tests/snapshot_tests/`) — Headless visual regression tests.
 
 ### Dependency Graph
@@ -102,9 +103,14 @@ snapshot_tests -> { litui_macro, litui_helpers, egui_kittest }
 
 ### egui
 
-- Source: crates.io `egui`/`eframe` v0.33.3 (migrated from fjkorf/egui fork)
-- Standard upstream API: `eframe::App::update()`, `CentralPanel::default().show(ctx, |ui| { ... })`
+- Source: crates.io `egui`/`eframe` v0.34.3 (migrated from fjkorf/egui fork). MSRV 1.95. litui crate version 0.34.0.
+- eframe 0.34 deprecates `App::update` in favor of a now-required `App::ui`. Examples keep `update` and add an empty `ui` plus `#[allow(deprecated)]` until the migration is done.
 - 3rd-party egui crates (egui_double_slider, etc.) work without `[patch.crates-io]`
+- Bevy 0.19 + bevy_egui 0.40. `egui_extras` 0.34 (`DatePickerButton` now takes `jiff::civil::Date`). `egui_kittest` 0.34.
+
+### Known tech debt
+
+- ~50 egui-0.34 deprecation warnings remain (e.g. `Panel::show` → `show_inside`, `App::update` → `App::ui`). Non-breaking; the migration is deferred. Do not treat these as build failures.
 
 ## Build & Run
 
