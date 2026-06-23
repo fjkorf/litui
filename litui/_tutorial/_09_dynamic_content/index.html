@@ -1,0 +1,129 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Dynamic Content"><title>litui::_tutorial::_09_dynamic_content - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="litui" data-themes="" data-resource-suffix="" data-rustdoc-version="1.96.0 (ac68faa20 2026-05-25)" data-channel="1.96.0" data-search-js="search-b5634cc7.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module _09_dynamic_content</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../litui/index.html">litui</a><span class="version">0.34.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module _09_<wbr>dynamic_<wbr>content</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#dynamic-content" title="Dynamic Content">Dynamic Content</a><ul><li><a href="#whats-new" title="What’s new">What’s new</a></li><li><a href="#foreach-iteration" title="Foreach iteration">Foreach iteration</a></li><li><a href="#conditional-rendering" title="Conditional rendering">Conditional rendering</a></li><li><a href="#runtime-styling" title="Runtime styling">Runtime styling</a></li><li><a href="#collapsible-sections" title="Collapsible sections">Collapsible sections</a></li><li><a href="#tree-rendering" title="Tree rendering">Tree rendering</a></li><li><a href="#widgets-in-foreach-tables" title="Widgets in Foreach Tables">Widgets in Foreach Tables</a></li><li><a href="#expert-tip" title="Expert tip">Expert tip</a></li><li><a href="#what-we-built" title="What we built">What we built</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In litui::<wbr>_<wbr>tutorial</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">litui</a>::<wbr><a href="../index.html">_tutorial</a></div><h1>Module <span>_09_<wbr>dynamic_<wbr>content</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/litui/_tutorial/mod.rs.html#55">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="dynamic-content"><a class="doc-anchor" href="#dynamic-content">§</a>Dynamic Content</h2>
+<blockquote>
+<p>Run it: <code>cargo run -p tut_09_dynamic</code></p>
+</blockquote>
+<p>This tutorial adds <strong>runtime data</strong> — iterating collections, conditional rendering, and dynamic styling.</p>
+<h3 id="whats-new"><a class="doc-anchor" href="#whats-new">§</a>What’s new</h3>
+<p>Block directives <code>::: foreach</code>, <code>::: if</code>, and <code>::: style</code> generate runtime control flow. The <code>::$field</code> shorthand applies runtime styles to individual paragraphs.</p>
+<h3 id="foreach-iteration"><a class="doc-anchor" href="#foreach-iteration">§</a>Foreach iteration</h3>
+<p>Render a collection as a table:</p>
+<div class="example-wrap"><pre class="language-text"><code>::: foreach items
+
+| {name} | {quantity} | {weight} |
+|--------|-----------|----------|
+
+:::</code></pre></div>
+<p>This auto-generates:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub struct </span>ItemsRow {
+    <span class="kw">pub </span>name: String,
+    <span class="kw">pub </span>quantity: String,
+    <span class="kw">pub </span>weight: String,
+}
+<span class="comment">// On AppState: pub items: Vec&lt;ItemsRow&gt;</span></code></pre></div>
+<p>Populate from code:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>state.items.push(ItemsRow {
+    name: <span class="string">"Iron Sword"</span>.into(),
+    quantity: <span class="string">"1"</span>.into(),
+    weight: <span class="string">"3.5 lb"</span>.into(),
+});</code></pre></div>
+<p><strong>Important:</strong> Blank lines are required around the table inside foreach — CommonMark needs them for block-level elements.</p>
+<h3 id="conditional-rendering"><a class="doc-anchor" href="#conditional-rendering">§</a>Conditional rendering</h3>
+<p>Show content based on a bool field:</p>
+<div class="example-wrap"><pre class="language-text"><code>::: if show_details
+
+Details visible only when `show_details` is true.
+
+:::</code></pre></div>
+<p>Auto-declares <code>show_details: bool</code> on <code>AppState</code>.</p>
+<h3 id="runtime-styling"><a class="doc-anchor" href="#runtime-styling">§</a>Runtime styling</h3>
+<p>Wrap content in a dynamic color override:</p>
+<div class="example-wrap"><pre class="language-text"><code>::: style status_color
+
+Server is operational.
+
+:::</code></pre></div>
+<p>Set <code>state.status_color = "success".into()</code> to apply the <code>success</code> style’s color at runtime.</p>
+<p>For single paragraphs, use the <code>::$field</code> shorthand:</p>
+<div class="example-wrap"><pre class="language-text"><code>Server status: [display](status_text) ::$status_style</code></pre></div>
+<p>Auto-declares <code>status_style: String</code>. Only the <code>color</code> property is applied at runtime.</p>
+<h3 id="collapsible-sections"><a class="doc-anchor" href="#collapsible-sections">§</a>Collapsible sections</h3>
+<p>Wrap content in an expandable/collapsible header using <code>::: collapsing</code>:</p>
+<div class="example-wrap"><pre class="language-text"><code>::: collapsing &quot;Inventory Details&quot;
+
+- Weight capacity: 50 lb
+- Gold: 127
+
+:::</code></pre></div>
+<p>The title can be a quoted string, an unquoted word, or a <code>{field}</code> reference (for foreach).</p>
+<h4 id="state-tracked-openclose"><a class="doc-anchor" href="#state-tracked-openclose">§</a>State-tracked open/close</h4>
+<p>Append <code>{bool_field}</code> to sync the open/closed state with <code>AppState</code>:</p>
+<div class="example-wrap"><pre class="language-text"><code>::: collapsing &quot;Server Info&quot; {show_server_info}
+
+Server status details here.
+
+:::</code></pre></div>
+<p>Auto-declares <code>show_server_info: bool</code> (default <code>false</code>). The app can programmatically open/close the section by setting this field, and user clicks update it back.</p>
+<h4 id="nesting"><a class="doc-anchor" href="#nesting">§</a>Nesting</h4>
+<p>Collapsing inside collapsing works — each gets a unique egui ID:</p>
+<div class="example-wrap"><pre class="language-text"><code>::: collapsing &quot;Outer&quot;
+
+::: collapsing &quot;Inner&quot;
+
+Nested content.
+
+:::
+
+:::</code></pre></div><h4 id="inside-foreach"><a class="doc-anchor" href="#inside-foreach">§</a>Inside foreach</h4>
+<p>Use <code>{field}</code> for per-row collapsible headers:</p>
+<div class="example-wrap"><pre class="language-text"><code>::: foreach bones
+
+::: collapsing {name}
+
+Bone details here.
+
+:::
+
+:::</code></pre></div><h3 id="tree-rendering"><a class="doc-anchor" href="#tree-rendering">§</a>Tree rendering</h3>
+<p>Add <code>children</code> after the field name to render recursive tree structures:</p>
+<div class="example-wrap"><pre class="language-text"><code>::: foreach bones children
+
+::: collapsing {name}
+
+{description}
+
+:::
+
+:::</code></pre></div>
+<p>This generates a row struct with <code>children: Vec&lt;Self&gt;</code>. The body renders recursively — each node’s children are rendered with the same template beneath it. Populate from code:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">let </span><span class="kw-2">mut </span>arm = BonesRow::default();
+arm.name = <span class="string">"Arm"</span>.into();
+arm.children.push(BonesRow {
+    name: <span class="string">"Hand"</span>.into(),
+    ..Default::default()
+});
+state.bones.push(arm);</code></pre></div>
+<p>Tree foreach works naturally with <code>::: collapsing</code> for expandable hierarchies like scene graphs, file browsers, and property trees.</p>
+<h3 id="widgets-in-foreach-tables"><a class="doc-anchor" href="#widgets-in-foreach-tables">§</a>Widgets in Foreach Tables</h3>
+<p>You can use input widgets inside foreach blocks. They create typed fields on the row struct:</p>
+<div class="example-wrap"><pre class="language-text"><code>::: foreach tasks
+
+| [checkbox](done) | {title} | [button](remove){on_remove} |
+|---|---|---|
+
+:::</code></pre></div>
+<p>This generates:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">pub struct </span>TasksRow {
+    <span class="kw">pub </span>done: bool,             <span class="comment">// from [checkbox](done)
+    </span><span class="kw">pub </span>title: String,          <span class="comment">// from {title}
+    </span><span class="kw">pub </span>on_remove_count: u32,   <span class="comment">// from [button](remove){on_remove}
+</span>}</code></pre></div>
+<p>Each row gets its own <code>done: bool</code> and <code>on_remove_count: u32</code> fields. Populate them from your app code just like display fields. Widget configs (<code>{on_remove}</code>) reference the global frontmatter <code>widgets:</code> section, not per-row config.</p>
+<h3 id="expert-tip"><a class="doc-anchor" href="#expert-tip">§</a>Expert tip</h3>
+<p>Runtime styling generates a <code>__resolve_style_color()</code> match function at compile time from all frontmatter styles that have a <code>color</code> property. At runtime, the field’s string value is matched against style names: <code>"success" =&gt; Some(Color32::from_rgb(0, 204, 102))</code>, <code>"danger" =&gt; Some(Color32::from_rgb(255, 68, 68))</code>, etc. The color is applied via <code>ui.visuals_mut().override_text_color</code> — egui’s clone-on-write style system ensures it only affects content within the block scope.</p>
+<h3 id="what-we-built"><a class="doc-anchor" href="#what-we-built">§</a>What we built</h3>
+<p>Dynamic data tables, conditional sections, and runtime-colored text — driven by <code>AppState</code> fields.</p>
+</div></details></section></div></main></body></html>

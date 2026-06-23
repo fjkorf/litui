@@ -1,0 +1,109 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Layout and Spacing"><title>litui::_tutorial::_07_layout - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="litui" data-themes="" data-resource-suffix="" data-rustdoc-version="1.96.0 (ac68faa20 2026-05-25)" data-channel="1.96.0" data-search-js="search-b5634cc7.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module _07_layout</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../litui/index.html">litui</a><span class="version">0.34.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module _07_<wbr>layout</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#layout-and-spacing" title="Layout and Spacing">Layout and Spacing</a><ul><li><a href="#whats-new" title="What’s new">What’s new</a></li><li><a href="#alignment-directives" title="Alignment directives">Alignment directives</a></li><li><a href="#horizontal-layout" title="Horizontal layout">Horizontal layout</a></li><li><a href="#column-layout" title="Column layout">Column layout</a></li><li><a href="#weighted-columns" title="Weighted columns">Weighted columns</a></li><li><a href="#table-column-alignment" title="Table column alignment">Table column alignment</a></li><li><a href="#spacing-configuration" title="Spacing configuration">Spacing configuration</a></li><li><a href="#expert-tip" title="Expert tip">Expert tip</a></li><li><a href="#what-we-built" title="What we built">What we built</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In litui::<wbr>_<wbr>tutorial</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">litui</a>::<wbr><a href="../index.html">_tutorial</a></div><h1>Module <span>_07_<wbr>layout</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/litui/_tutorial/mod.rs.html#47">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="layout-and-spacing"><a class="doc-anchor" href="#layout-and-spacing">§</a>Layout and Spacing</h2>
+<blockquote>
+<p>Run it: <code>cargo run -p tut_07_layout</code></p>
+</blockquote>
+<p>This tutorial covers <strong>alignment</strong>, <strong>horizontal layout</strong>, <strong>columns</strong>, <strong>weighted columns</strong>, and <strong>spacing configuration</strong>.</p>
+<h3 id="whats-new"><a class="doc-anchor" href="#whats-new">§</a>What’s new</h3>
+<p>Block directives control element placement and alignment. The <code>spacing:</code> frontmatter section customizes vertical gaps.</p>
+<h3 id="alignment-directives"><a class="doc-anchor" href="#alignment-directives">§</a>Alignment directives</h3>
+<p>Center, right-align, or fill content blocks:</p>
+<div class="example-wrap"><pre class="language-text"><code>::: center
+## Game Over
+Your score: 42
+:::
+
+::: right
+*Last updated: today*
+:::
+
+::: fill
+[button](wide_button)
+:::</code></pre></div>
+<ul>
+<li><code>::: center</code> — horizontally centers all content in the block</li>
+<li><code>::: right</code> — right-aligns all content</li>
+<li><code>::: fill</code> — stretches widgets to fill available width</li>
+</ul>
+<p>These nest inside any other directive, including frames and columns.</p>
+<h3 id="horizontal-layout"><a class="doc-anchor" href="#horizontal-layout">§</a>Horizontal layout</h3>
+<p>Place elements side by side with optional alignment:</p>
+<div class="example-wrap"><pre class="language-text"><code>::: horizontal
+[button](Save) [button](Cancel) [button](Reset)
+:::</code></pre></div>
+<p>Everything inside flows left-to-right in a single row. Add an alignment argument for different positioning:</p>
+<div class="example-wrap"><pre class="language-text"><code>::: horizontal center
+[button](OK)
+:::
+
+::: horizontal right
+[button](Submit)
+:::
+
+::: horizontal space-between
+[button](Back)
+::: next
+[button](Next)
+:::</code></pre></div>
+<ul>
+<li><code>::: horizontal</code> — left-aligned (default)</li>
+<li><code>::: horizontal center</code> — items centered in the row</li>
+<li><code>::: horizontal right</code> — items right-aligned</li>
+<li><code>::: horizontal space-between</code> — first group left, second group right; use <code>::: next</code> to separate</li>
+</ul>
+<h3 id="column-layout"><a class="doc-anchor" href="#column-layout">§</a>Column layout</h3>
+<p>Split into equal-width columns with <code>::: next</code> separators:</p>
+<div class="example-wrap"><pre class="language-text"><code>::: columns 2
+
+### Controls
+[slider](volume){vol}
+
+::: next
+
+### Status
+**Volume:** [display](volume)
+:::</code></pre></div>
+<p>Each column gets an independent <code>Ui</code> via <code>ui.columns()</code>.</p>
+<h3 id="weighted-columns"><a class="doc-anchor" href="#weighted-columns">§</a>Weighted columns</h3>
+<p>Use colon-separated weights for proportional column widths:</p>
+<div class="example-wrap"><pre class="language-text"><code>::: columns 3:1
+Main content takes 75% width.
+::: next
+Sidebar takes 25%.
+:::
+
+::: columns 1:2:1
+Left nav
+::: next
+Main content (50%)
+::: next
+Right panel
+:::</code></pre></div>
+<p>Weights are ratios: <code>3:1</code> means 75%/25%, <code>1:2:1</code> means 25%/50%/25%. When all weights are equal, litui uses <code>ui.columns()</code>. When weights differ, it uses <code>egui_extras::StripBuilder</code> with proportional sizes.</p>
+<h3 id="table-column-alignment"><a class="doc-anchor" href="#table-column-alignment">§</a>Table column alignment</h3>
+<p>Standard GFM table alignment is honored:</p>
+<div class="example-wrap"><pre class="language-text"><code>| Left   | Center | Right  |
+|:-------|:------:|-------:|
+| text   |  text  |   text |</code></pre></div>
+<ul>
+<li><code>:---</code> or <code>---</code> = left-aligned (default)</li>
+<li><code>:---:</code> = center-aligned</li>
+<li><code>---:</code> = right-aligned</li>
+</ul>
+<h3 id="spacing-configuration"><a class="doc-anchor" href="#spacing-configuration">§</a>Spacing configuration</h3>
+<p>Override default vertical gaps in frontmatter:</p>
+<div class="example-wrap"><pre class="language-yaml"><code>spacing:
+  paragraph: 6.0
+  heading_h2: 14.0</code></pre></div><div><table><thead><tr><th>Field</th><th>Default</th><th>Effect</th></tr></thead><tbody>
+<tr><td><code>paragraph</code></td><td>8.0</td><td>Gap after paragraphs</td></tr>
+<tr><td><code>table</code></td><td>8.0</td><td>Gap after tables</td></tr>
+<tr><td><code>heading_h1</code></td><td>16.0</td><td>Space before H1</td></tr>
+<tr><td><code>heading_h2</code></td><td>12.0</td><td>Space before H2</td></tr>
+<tr><td><code>heading_h3</code></td><td>8.0</td><td>Space before H3</td></tr>
+<tr><td><code>heading_h4</code></td><td>4.0</td><td>Space before H4+</td></tr>
+<tr><td><code>item</code></td><td>—</td><td><code>ui.spacing_mut().item_spacing.y</code></td></tr>
+</tbody></table>
+</div><h3 id="expert-tip"><a class="doc-anchor" href="#expert-tip">§</a>Expert tip</h3>
+<p>Block directives (<code>::: center</code>, <code>::: right</code>, <code>::: fill</code>, <code>::: horizontal</code>, <code>::: columns</code>, <code>::: frame</code>, <code>::: foreach</code>, <code>::: if</code>, <code>::: style</code>) all use the same stack-based pattern. When a directive opens, the current <code>code_body</code> is saved and a fresh one starts accumulating. When <code>:::</code> closes, the accumulated body is popped and wrapped in the directive’s container code. This <code>code_body</code> swap pattern makes nesting directives straightforward — each level pushes its own frame onto the stack.</p>
+<h3 id="what-we-built"><a class="doc-anchor" href="#what-we-built">§</a>What we built</h3>
+<p>Centered headings, right-aligned text, proportional column layouts, aligned horizontal button rows, and custom spacing — all from markdown directives.</p>
+</div></details></section></div></main></body></html>

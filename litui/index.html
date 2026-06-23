@@ -1,0 +1,229 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="litui"><title>litui - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="litui" data-themes="" data-resource-suffix="" data-rustdoc-version="1.96.0 (ac68faa20 2026-05-25)" data-channel="1.96.0" data-search-js="search-b5634cc7.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-41dd4d93.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate litui</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../litui/index.html">litui</a><span class="version">0.34.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#litui" title="litui">litui</a><ul><li><a href="#what-it-looks-like" title="What it looks like">What it looks like</a></li><li><a href="#quick-start" title="Quick Start">Quick Start</a></li><li><a href="#tutorials" title="Tutorials">Tutorials</a></li><li><a href="#features" title="Features">Features</a></li><li><a href="#frontmatter-styles" title="Frontmatter Styles">Frontmatter Styles</a></li><li><a href="#widgets" title="Widgets">Widgets</a></li><li><a href="#project-structure" title="Project Structure">Project Structure</a></li><li><a href="#running" title="Running">Running</a></li><li><a href="#dependencies" title="Dependencies">Dependencies</a></li><li><a href="#contributing" title="Contributing">Contributing</a></li><li><a href="#license" title="License">License</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1>Crate <span>litui</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/litui/lib.rs.html#1-7">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="litui"><a class="doc-anchor" href="#litui">§</a>litui</h2>
+<p><strong>Literate UI for <a href="https://github.com/emilk/egui">egui</a>.</strong> Write your UI in Markdown files with YAML frontmatter, and have it compiled into native egui widgets at build time. Zero runtime parsing. Fully type-checked Rust.</p>
+<p>litui turns <code>.md</code> files into egui rendering code via proc-macros, with support for styled text, CSS-like class selectors, interactive form widgets, 3rd-party widget crates, and shared state via bevy_ecs.</p>
+<h3 id="what-it-looks-like"><a class="doc-anchor" href="#what-it-looks-like">§</a>What it looks like</h3>
+<p><strong>Styled text from YAML frontmatter</strong> — define named presets, apply with <code>::key</code>:</p>
+<div class="example-wrap"><pre class="language-markdown"><code>styles:
+  primary: { bold: true, color: &quot;#4488FF&quot;, size: 20.0 }
+  success: { bold: true, color: &quot;#00CC66&quot; }
+  danger:  { bold: true, color: &quot;#FF4444&quot; }
+  warning: { bold: true, color: &quot;#FFAA00&quot;, background: &quot;#332200&quot; }
+
+This is the primary style. ::primary
+This is the success style. ::success
+This is the danger style. ::danger</code></pre></div>
+<p><img src="tests/snapshot_tests/snapshots/demo_styles.png" alt="Style gallery" /></p>
+<p><strong>Interactive widgets embedded in markdown</strong> — sliders, checkboxes, text inputs, all stateful:</p>
+<div class="example-wrap"><pre class="language-markdown"><code>## Audio ::section
+[slider](volume){vol}
+[checkbox](muted)
+
+## User Info ::section
+[textedit](username){name_input}
+[dragvalue](count){speed}
+
+## Actions ::section
+[button.success](Submit){on_submit}
+[button.danger](Reset){on_reset}</code></pre></div>
+<p><img src="tests/snapshot_tests/snapshots/demo_form.png" alt="Form widgets" /></p>
+<p><strong>Cross-page state monitoring</strong> — <code>[display]</code> reads shared <code>AppState</code> fields set by other pages:</p>
+<div class="example-wrap"><pre class="language-markdown"><code>| Field | Value |
+|-------|-------|
+| Volume | [display](volume){vol_fmt} |
+| Muted | [display](muted) |
+| Username | [display](username) |
+| Submit clicks | [display](on_submit_count) |</code></pre></div>
+<p><img src="tests/snapshot_tests/snapshots/demo_monitor_with_values.png" alt="State monitor" /></p>
+<p><strong>Full markdown rendering</strong> — headings, lists, blockquotes, code, tables, links, images:</p>
+<div class="example-wrap"><pre class="language-markdown"><code># Heading 1
+## Heading 2
+- Bullet item
+  - Nested bullet
+1. Numbered item
+&gt; Blockquote with depth bars
+[GitHub](https://github.com/) — clickable links</code></pre></div>
+<p><img src="tests/snapshot_tests/snapshots/example_md.png" alt="Markdown features" /></p>
+<h3 id="quick-start"><a class="doc-anchor" href="#quick-start">§</a>Quick Start</h3>
+<p><strong>Static content:</strong></p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use </span>litui_macro::include_litui_ui;
+<span class="kw">use </span>litui_helpers::<span class="kw-2">*</span>;
+
+<span class="kw">let </span>render = <span class="macro">include_litui_ui!</span>(<span class="string">"content.md"</span>);
+render(ui); <span class="comment">// renders inside any egui::Ui</span></code></pre></div>
+<p><strong>Interactive forms</strong> (macro generates the state struct):</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">let </span>(render, <span class="kw-2">mut </span>state) = <span class="macro">include_litui_ui!</span>(<span class="string">"form.md"</span>);
+render(ui, <span class="kw-2">&amp;mut </span>state);
+<span class="macro">println!</span>(<span class="string">"Volume: {}"</span>, state.volume);</code></pre></div>
+<p><strong>Multi-page apps</strong> with shared styles and navigation:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use </span>litui_macro::define_litui_app;
+<span class="kw">use </span>litui_helpers::<span class="kw-2">*</span>;
+
+<span class="macro">define_litui_app!</span> {
+    parent: <span class="string">"content/_app.md"</span>,    <span class="comment">// shared styles
+    </span><span class="string">"content/about.md"</span>,
+    <span class="string">"content/form.md"</span>,
+    <span class="string">"content/monitor.md"</span>,
+}
+<span class="comment">// Generates: Page enum, AppState, render functions, LituiApp struct</span></code></pre></div><h3 id="tutorials"><a class="doc-anchor" href="#tutorials">§</a>Tutorials</h3>
+<p>Step-by-step guides are built into the docs. Run <code>cargo doc -p litui --open</code> and navigate to the <a href="_tutorial/index.html" title="mod litui::_tutorial"><code>_tutorial</code></a> module, or click the links below:</p>
+<div><table><thead><tr><th>#</th><th>Tutorial</th><th>Example</th></tr></thead><tbody>
+<tr><td>01</td><td><a href="_tutorial/_01_hello_markdown/index.html" title="mod litui::_tutorial::_01_hello_markdown">Hello Markdown</a></td><td><code>tut_01_hello</code></td></tr>
+<tr><td>02</td><td><a href="_tutorial/_02_frontmatter_styles/index.html" title="mod litui::_tutorial::_02_frontmatter_styles">Frontmatter Styles</a></td><td><code>tut_02_styles</code></td></tr>
+<tr><td>03</td><td><a href="_tutorial/_03_tables/index.html" title="mod litui::_tutorial::_03_tables">Tables</a></td><td><code>tut_03_tables</code></td></tr>
+<tr><td>04</td><td><a href="_tutorial/_04_images/index.html" title="mod litui::_tutorial::_04_images">Images</a></td><td><code>tut_04_images</code></td></tr>
+<tr><td>05</td><td><a href="_tutorial/_05_styled_containers/index.html" title="mod litui::_tutorial::_05_styled_containers">Styled Containers</a></td><td><code>tut_05_containers</code></td></tr>
+<tr><td>06</td><td><a href="_tutorial/_06_widgets/index.html" title="mod litui::_tutorial::_06_widgets">Widgets</a></td><td><code>tut_06_widgets</code></td></tr>
+<tr><td>07</td><td><a href="_tutorial/_07_layout/index.html" title="mod litui::_tutorial::_07_layout">Layout and Spacing</a></td><td><code>tut_07_layout</code></td></tr>
+<tr><td>08</td><td><a href="_tutorial/_08_multi_page_apps/index.html" title="mod litui::_tutorial::_08_multi_page_apps">Multi-Page Apps</a></td><td><code>tut_08_multi_page</code></td></tr>
+<tr><td>09</td><td><a href="_tutorial/_09_dynamic_content/index.html" title="mod litui::_tutorial::_09_dynamic_content">Dynamic Content</a></td><td><code>tut_09_dynamic</code></td></tr>
+<tr><td>10</td><td><a href="_tutorial/_10_advanced_widgets/index.html" title="mod litui::_tutorial::_10_advanced_widgets">Advanced Widgets</a></td><td><code>tut_10_advanced</code></td></tr>
+<tr><td>11</td><td><a href="_tutorial/_11_bevy_integration/index.html" title="mod litui::_tutorial::_11_bevy_integration">Bevy Integration</a></td><td><code>tut_11_bevy</code></td></tr>
+<tr><td>12</td><td><a href="_tutorial/_12_game_ui/index.html" title="mod litui::_tutorial::_12_game_ui">Game UI</a></td><td><code>tut_12_game</code></td></tr>
+</tbody></table>
+</div><h3 id="features"><a class="doc-anchor" href="#features">§</a>Features</h3><div><table><thead><tr><th>Feature</th><th>How it works</th></tr></thead><tbody>
+<tr><td><strong>Headings, paragraphs, lists</strong></td><td>Standard Markdown rendered as egui widgets</td></tr>
+<tr><td><strong>Bold, italic, strikethrough</strong></td><td>Composable inline formatting</td></tr>
+<tr><td><strong>Tables (GFM)</strong></td><td><code>egui::Grid</code> with bold headers, striped rows, and column alignment (<code>:---:</code>, <code>---:</code>)</td></tr>
+<tr><td><strong>Code blocks + inline code</strong></td><td>Monospace rendering with background</td></tr>
+<tr><td><strong>Blockquotes</strong></td><td>Nested with depth-based vertical bars</td></tr>
+<tr><td><strong>Links</strong></td><td>Clickable <code>egui::Hyperlink</code> widgets</td></tr>
+<tr><td><strong>YAML frontmatter styles</strong></td><td><code>::key</code> suffix with hex colors or semantic keywords (<code>strong</code>, <code>error</code>, <code>weak</code>, etc.)</td></tr>
+<tr><td><strong>Parent frontmatter</strong></td><td>Shared styles inherited by all pages, child overrides</td></tr>
+<tr><td><strong>CSS-like class selectors</strong></td><td><code>[button.primary.large](Submit)</code> — composed styles</td></tr>
+<tr><td><strong>Inline styled spans</strong></td><td><code>::accent(styled text)</code> — frontmatter styles on inline text</td></tr>
+<tr><td><strong>Images</strong></td><td><code>![alt](url)</code> — local files and HTTP, via <code>egui_extras</code> loaders</td></tr>
+<tr><td><strong>Styled containers</strong></td><td><code>::key</code> colors blockquote bars and list bullet markers</td></tr>
+<tr><td><strong>Interactive widgets</strong></td><td><code>[slider]</code>, <code>[checkbox]</code>, <code>[textedit]</code>, <code>[textarea]</code>, <code>[password]</code>, <code>[dragvalue]</code>, <code>[toggle]</code>, <code>[radio]</code>, <code>[combobox]</code>, <code>[selectable]</code>, <code>[color]</code>, <code>[button]</code></td></tr>
+<tr><td><strong>Display widgets</strong></td><td><code>[display](field)</code> — read-only, self-declares fields for code-driven UIs</td></tr>
+<tr><td><strong>Dynamic collections</strong></td><td><code>[select]</code> for runtime lists, <code>::: foreach</code> for iterating <code>Vec&lt;Row&gt;</code></td></tr>
+<tr><td><strong>3rd-party widgets</strong></td><td><code>[double_slider]</code> via egui_double_slider, extensible</td></tr>
+<tr><td><strong>Dynamic styling</strong></td><td><code>::: style</code> blocks for runtime color override, <code>::$field</code> shorthand</td></tr>
+<tr><td><strong>Message log</strong></td><td><code>[log]</code> — scrollable stick-to-bottom message list from <code>Vec&lt;String&gt;</code></td></tr>
+<tr><td><strong>Container directives</strong></td><td><code>panel: right</code> in frontmatter, <code>show_all(ctx)</code> handles layout automatically</td></tr>
+<tr><td><strong>Panel visibility</strong></td><td><code>open:</code> on any panel type for state-driven show/hide</td></tr>
+<tr><td><strong>Panel backgrounds</strong></td><td><code>background: transparent</code> or <code>"#RRGGBBAA"</code> — per-panel fill, ideal for Bevy overlays</td></tr>
+<tr><td><strong>Navigation control</strong></td><td><code>navigable:</code> per page, <code>nav:</code> config for position/filtering</td></tr>
+<tr><td><strong>Conditional sections</strong></td><td><code>::: if</code> blocks — show/hide content based on AppState bool</td></tr>
+<tr><td><strong>Collapsible sections</strong></td><td><code>::: collapsing "Title"</code> — <code>CollapsingHeader</code> with optional state tracking</td></tr>
+<tr><td><strong>Recursive trees</strong></td><td><code>::: foreach nodes children</code> — tree rendering with <code>Vec&lt;Self&gt;</code> row structs</td></tr>
+<tr><td><strong>Alignment directives</strong></td><td><code>::: center</code>, <code>::: right</code>, <code>::: fill</code> — block alignment via egui Layout</td></tr>
+<tr><td><strong>Horizontal alignment</strong></td><td><code>::: horizontal center/right/space-between</code> — row layout options</td></tr>
+<tr><td><strong>Weighted columns</strong></td><td><code>::: columns 3:1:1</code> — proportional column widths via StripBuilder</td></tr>
+<tr><td><strong>Semantic colors</strong></td><td><code>color: strong</code>, <code>error</code>, <code>weak</code>, <code>hyperlink</code> — adapts to dark/light mode</td></tr>
+<tr><td><strong>Global theme config</strong></td><td><code>theme:</code> section in frontmatter with <code>dark:</code>/<code>light:</code> overrides for egui Visuals</td></tr>
+<tr><td><strong>Shared state</strong></td><td>Flat <code>AppState</code> across pages, same-type fields shared, bevy <code>Resource</code> (via newtype on Bevy 0.19)</td></tr>
+<tr><td><strong>Bevy integration</strong></td><td>Full Bevy app rendering via <code>bevy_egui</code> — same macro output, different runtime</td></tr>
+<tr><td><strong>Custom escape hatch</strong></td><td><code>[custom](slot)</code> — user-supplied closure draws raw egui inline; whole-page-as-slot supported</td></tr>
+<tr><td><strong>ID selectors</strong></td><td><code>[widget#id]</code> — <code>egui::Id</code> for state persistence</td></tr>
+</tbody></table>
+</div><h3 id="frontmatter-styles"><a class="doc-anchor" href="#frontmatter-styles">§</a>Frontmatter Styles</h3>
+<p>Define reusable style presets in YAML and apply them with <code>::key</code>:</p>
+<div class="example-wrap"><pre class="language-markdown"><code>---
+styles:
+  promo:
+    bold: true
+    color: &quot;#FF6B00&quot;
+    size: 24.0
+---
+
+# Big Sale! ::promo</code></pre></div>
+<p><strong>Style properties:</strong> <code>bold</code>, <code>italic</code>, <code>strikethrough</code>, <code>underline</code>, <code>color</code> (hex <code>"#RRGGBB"</code> or semantic keyword like <code>strong</code>, <code>error</code>, <code>weak</code>), <code>background</code>, <code>size</code>, <code>monospace</code>, <code>weak</code>.</p>
+<h4 id="parent-inheritance"><a class="doc-anchor" href="#parent-inheritance">§</a>Parent inheritance</h4>
+<p>Define shared styles once in a parent <code>.md</code> file. All child pages inherit them:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="macro">define_litui_app!</span> {
+    parent: <span class="string">"content/_app.md"</span>,   <span class="comment">// shared styles + widget configs
+    </span><span class="string">"content/about.md"</span>,          <span class="comment">// inherits parent, can override
+    </span><span class="string">"content/form.md"</span>,
+}</code></pre></div><h4 id="class-selectors"><a class="doc-anchor" href="#class-selectors">§</a>Class selectors</h4>
+<p>Apply composed styles using CSS-like selectors on link text:</p>
+<div class="example-wrap"><pre class="language-markdown"><code>[button#submit.primary.large](Click_me)</code></pre></div>
+<p><code>#submit</code> sets the egui ID. <code>.primary.large</code> merges two frontmatter styles (last wins on conflict). Works on widgets, buttons, and inline text spans (<code>::accent(text)</code>).</p>
+<h3 id="widgets"><a class="doc-anchor" href="#widgets">§</a>Widgets</h3>
+<p>Embed egui widgets using Markdown link syntax:</p>
+<div class="example-wrap"><pre class="language-markdown"><code>[slider](volume){vol}       &lt;!-- stateful: generates state.volume: f64 --&gt;
+[checkbox](muted)            &lt;!-- stateful: generates state.muted: bool --&gt;
+[button.danger](Cancel)      &lt;!-- stateless: styled button --&gt;
+[display](volume){fmt}       &lt;!-- read-only: shows state.volume --&gt;
+[double_slider](freq){range} &lt;!-- 3rd-party: egui_double_slider --&gt;</code></pre></div>
+<p>Widget config comes from frontmatter <code>widgets:</code> section:</p>
+<div class="example-wrap"><pre class="language-yaml"><code>widgets:
+  vol: { min: 0, max: 100, label: Volume }
+  fmt: { format: &quot;{:.1}&quot; }
+  range: { min: 20, max: 20000 }
+  octaves: { min: 0, max: 6, integer: true, label: Octaves }
+  angle: { speed: 0.5, suffix: &quot;°&quot;, decimals: 1 }</code></pre></div>
+<p>Numeric options: <code>integer</code> (snap to whole numbers), <code>step</code> (quantize), <code>decimals</code> (fixed precision). DragValue supports <code>min</code>/<code>max</code> (range clamping), <code>suffix</code>/<code>prefix</code>, and <code>decimals</code>.</p>
+<div><table><thead><tr><th>Widget</th><th>State</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>[slider](field){config}</code></td><td><code>f64</code></td><td>Range slider with min/max/label/suffix/prefix</td></tr>
+<tr><td><code>[double_slider](field){config}</code></td><td><code>f64</code> x2</td><td>Two-handle range slider (egui_double_slider)</td></tr>
+<tr><td><code>[checkbox](field)</code></td><td><code>bool</code></td><td>Toggle checkbox</td></tr>
+<tr><td><code>[toggle](field){config}</code></td><td><code>bool</code></td><td>iOS-style animated toggle switch</td></tr>
+<tr><td><code>[textedit](field){config}</code></td><td><code>String</code></td><td>Single-line text input with hint</td></tr>
+<tr><td><code>[textarea](field){config}</code></td><td><code>String</code></td><td>Multi-line text editor with hint/rows</td></tr>
+<tr><td><code>[password](field){config}</code></td><td><code>String</code></td><td>Masked password input with hint</td></tr>
+<tr><td><code>[dragvalue](field){config}</code></td><td><code>f64</code></td><td>Draggable numeric value</td></tr>
+<tr><td><code>[radio](field){config}</code></td><td><code>usize</code></td><td>Radio button group with options list</td></tr>
+<tr><td><code>[combobox](field){config}</code></td><td><code>usize</code></td><td>Dropdown selection with options list</td></tr>
+<tr><td><code>[selectable](field){config}</code></td><td><code>usize</code></td><td>Tab-like horizontal toggle buttons</td></tr>
+<tr><td><code>[color](field)</code></td><td><code>[u8;4]</code></td><td>Color picker button</td></tr>
+<tr><td><code>[button.class](label)</code></td><td>—</td><td>Styled button (stateless)</td></tr>
+<tr><td><code>[progress](0.75)</code></td><td>—</td><td>Progress bar (stateless)</td></tr>
+<tr><td><code>[spinner]()</code></td><td>—</td><td>Loading spinner (stateless)</td></tr>
+<tr><td><code>[select](index){list}</code></td><td><code>usize</code> + <code>Vec&lt;String&gt;</code></td><td>Scrollable runtime selection list</td></tr>
+<tr><td><code>[display](field){config}</code></td><td><code>String</code></td><td>Read-only value display (self-declares if needed)</td></tr>
+<tr><td><code>[custom](slot)</code></td><td><code>Option&lt;Box&lt;dyn FnMut(&amp;mut egui::Ui) + Send + Sync&gt;&gt;</code></td><td>Escape hatch: user closure draws raw egui inline</td></tr>
+<tr><td><code>::: foreach field</code> … <code>:::</code></td><td><code>Vec&lt;Row&gt;</code></td><td>Iterate dynamic collections as tables/lists</td></tr>
+<tr><td><code>::: foreach field children</code> … <code>:::</code></td><td><code>Vec&lt;Row&gt;</code></td><td>Recursive tree rendering with <code>children: Vec&lt;Self&gt;</code></td></tr>
+<tr><td><code>::: collapsing "Title"</code> … <code>:::</code></td><td>— or <code>bool</code></td><td>Collapsible section (<code>CollapsingHeader</code>)</td></tr>
+</tbody></table>
+</div><h3 id="project-structure"><a class="doc-anchor" href="#project-structure">§</a>Project Structure</h3><div class="example-wrap"><pre class="language-text"><code>egui-litui/
+├── crates/
+│   ├── litui/                       # Facade: re-exports + tutorials (cargo doc)
+│   ├── litui_parser/                # Standalone parser: .md → pure-data AST
+│   ├── litui_macro/      # Proc-macro: AST → egui TokenStream
+│   └── litui_helpers/    # Runtime rendering functions
+├── examples/
+│   ├── 01_hello/ .. 07_layout/      # Progressive single-page tutorials
+│   ├── 08_multi_page/               # Multi-page app with panels
+│   ├── 09_dynamic/                  # Dynamic content (foreach, if, style)
+│   ├── 10_advanced/                 # Advanced widgets + selectors
+│   ├── 11_bevy/                     # Bevy integration via bevy_egui
+│   ├── 12_game/                     # Full game UI vertical slice
+│   └── 13_custom/                   # [custom](slot) escape hatch (Bevy path)
+├── tests/snapshot_tests/            # Headless visual regression tests
+├── knowledge/                       # Architecture docs for contributors
+└── scripts/                         # Doc generation tooling</code></pre></div><h3 id="running"><a class="doc-anchor" href="#running">§</a>Running</h3><div class="example-wrap"><pre class="language-sh"><code>cargo run -p tut_01_hello             # minimal hello world
+cargo run -p tut_08_multi_page        # multi-page app with panels
+cargo run -p tut_12_game              # full game UI demo
+cargo doc -p litui --no-deps --open   # tutorials and API reference
+cargo test                            # run all tests</code></pre></div><h3 id="dependencies"><a class="doc-anchor" href="#dependencies">§</a>Dependencies</h3>
+<ul>
+<li><strong>egui/eframe</strong> 0.34.3 — immediate-mode GUI (crates.io); MSRV 1.95, litui 0.34.0</li>
+<li><strong>pulldown-cmark</strong> 0.9 — Markdown parser</li>
+<li><strong>bevy</strong> 0.19 / <strong>bevy_egui</strong> 0.40 — ECS + egui integration for shared state (Bevy examples)</li>
+<li><strong>egui_double_slider</strong> 1.0 — range slider widget (optional)</li>
+<li><strong>serde/serde_yaml</strong> — YAML frontmatter parsing</li>
+<li><strong>syn/quote</strong> — proc-macro infrastructure</li>
+</ul>
+<h3 id="contributing"><a class="doc-anchor" href="#contributing">§</a>Contributing</h3>
+<p>Architecture documentation lives in <a href="knowledge/"><code>knowledge/</code></a>:</p>
+<div><table><thead><tr><th>Guide</th><th>Topic</th></tr></thead><tbody>
+<tr><td><a href="knowledge/pulldown-cmark-0.9.md">pulldown-cmark-0.9.md</a></td><td>Event model and parsing rules</td></tr>
+<tr><td><a href="knowledge/proc-macro-architecture.md">proc-macro-architecture.md</a></td><td>Fragment system, code generation, module layout</td></tr>
+<tr><td><a href="knowledge/frontmatter-and-styles.md">frontmatter-and-styles.md</a></td><td>Style pipeline, parent inheritance, selectors</td></tr>
+<tr><td><a href="knowledge/widget-directives.md">widget-directives.md</a></td><td>Widget detection, state generation, adding new widgets</td></tr>
+<tr><td><a href="knowledge/testing-patterns.md">testing-patterns.md</a></td><td>Snapshot tests, event dumps, kittest internals</td></tr>
+<tr><td><a href="knowledge/common-pitfalls.md">common-pitfalls.md</a></td><td>18 gotchas — <strong>read this first when debugging</strong></td></tr>
+<tr><td><a href="knowledge/third-party-widgets.md">third-party-widgets.md</a></td><td>Integrating external egui widget crates</td></tr>
+<tr><td><a href="knowledge/bevy-ecs-integration.md">bevy-ecs-integration.md</a></td><td>ECS state management architecture</td></tr>
+</tbody></table>
+</div>
+<p>Generated API docs: <a href="knowledge/api/"><code>knowledge/api/</code></a> (regenerate with <code>python3 scripts/generate-doc-markdown.py</code>).</p>
+<h3 id="license"><a class="doc-anchor" href="#license">§</a>License</h3>
+<p>MIT OR Apache-2.0</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="_tutorial/index.html" title="mod litui::_tutorial">_tutorial</a></dt><dd>Step-by-step guides for building UIs with litui.</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.define_litui_app.html" title="macro litui::define_litui_app">define_<wbr>litui_<wbr>app</a></dt><dd>Item-position macro that generates a full app skeleton from markdown files.</dd><dt><a class="macro" href="macro.include_litui_ui.html" title="macro litui::include_litui_ui">include_<wbr>litui_<wbr>ui</a></dt><dd>Macro to include markdown as egui UI code.</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.StyleContext.html" title="struct litui::StyleContext">Style<wbr>Context</a></dt><dd>Represents the current style context for markdown rendering.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.body.html" title="fn litui::body">body</a></dt><dd>Render body text with the default body text style.</dd><dt><a class="fn" href="fn.bullet_point.html" title="fn litui::bullet_point">bullet_<wbr>point</a></dt><dd>Legacy: render a bullet point with single-level indent. Prefer <code>emit_bullet_prefix</code>.</dd><dt><a class="fn" href="fn.code.html" title="fn litui::code">code</a></dt><dd>Block-level fenced code.</dd><dt><a class="fn" href="fn.emit_bullet_prefix.html" title="fn litui::emit_bullet_prefix">emit_<wbr>bullet_<wbr>prefix</a></dt><dd>Emit a bullet prefix with depth-based indentation.</dd><dt><a class="fn" href="fn.emit_bullet_prefix_colored.html" title="fn litui::emit_bullet_prefix_colored">emit_<wbr>bullet_<wbr>prefix_<wbr>colored</a></dt><dd>Emit a bullet prefix with an optional custom color.</dd><dt><a class="fn" href="fn.emit_numbered_prefix.html" title="fn litui::emit_numbered_prefix">emit_<wbr>numbered_<wbr>prefix</a></dt><dd>Emit a numbered prefix with depth-based indentation.</dd><dt><a class="fn" href="fn.emit_numbered_prefix_colored.html" title="fn litui::emit_numbered_prefix_colored">emit_<wbr>numbered_<wbr>prefix_<wbr>colored</a></dt><dd>Emit a numbered prefix with an optional custom color.</dd><dt><a class="fn" href="fn.emit_quote_bars.html" title="fn litui::emit_quote_bars">emit_<wbr>quote_<wbr>bars</a></dt><dd>Emit blockquote vertical bars for <code>depth</code> levels at the start of a row.</dd><dt><a class="fn" href="fn.emit_quote_bars_colored.html" title="fn litui::emit_quote_bars_colored">emit_<wbr>quote_<wbr>bars_<wbr>colored</a></dt><dd>Emit blockquote vertical bars with an optional custom color.</dd><dt><a class="fn" href="fn.end_paragraph.html" title="fn litui::end_paragraph">end_<wbr>paragraph</a></dt><dd>End the current row and add paragraph spacing.</dd><dt><a class="fn" href="fn.h1.html" title="fn litui::h1">h1</a></dt><dd>Render an H1 heading (28pt, bold, strong color) as a block-level element.</dd><dt><a class="fn" href="fn.h2.html" title="fn litui::h2">h2</a></dt><dd>Render an H2 heading (22pt, bold) as a block-level element.</dd><dt><a class="fn" href="fn.h3.html" title="fn litui::h3">h3</a></dt><dd>Render an H3 heading (18pt, bold) as a block-level element.</dd><dt><a class="fn" href="fn.hyperlink.html" title="fn litui::hyperlink">hyperlink</a></dt><dd>Render a clickable hyperlink with underline and hyperlink color.</dd><dt><a class="fn" href="fn.inline_code.html" title="fn litui::inline_code">inline_<wbr>code</a></dt><dd>Inline monospace code (not block-level).</dd><dt><a class="fn" href="fn.italic.html" title="fn litui::italic">italic</a></dt><dd>Legacy: render italic text. Prefer <code>styled_label</code>.</dd><dt><a class="fn" href="fn.numbered_point.html" title="fn litui::numbered_point">numbered_<wbr>point</a></dt><dd>Legacy: render a numbered list item with single-level indent. Prefer <code>emit_numbered_prefix</code>.</dd><dt><a class="fn" href="fn.quote_indent.html" title="fn litui::quote_indent">quote_<wbr>indent</a></dt><dd>Legacy: render a blockquote with single-level indent. Prefer <code>emit_quote_bars</code>.</dd><dt><a class="fn" href="fn.raised.html" title="fn litui::raised">raised</a></dt><dd>Legacy: render raised (superscript-like) text.</dd><dt><a class="fn" href="fn.separator.html" title="fn litui::separator">separator</a></dt><dd>Render a horizontal separator as a block-level element.</dd><dt><a class="fn" href="fn.small.html" title="fn litui::small">small</a></dt><dd>Legacy: render small text. Prefer <code>styled_label_rich</code> with a size override.</dd><dt><a class="fn" href="fn.strikethrough.html" title="fn litui::strikethrough">strikethrough</a></dt><dd>Legacy: render strikethrough text. Prefer <code>styled_label</code>.</dd><dt><a class="fn" href="fn.styled_hyperlink.html" title="fn litui::styled_hyperlink">styled_<wbr>hyperlink</a></dt><dd>Clickable hyperlink with composable inline styles.</dd><dt><a class="fn" href="fn.styled_label.html" title="fn litui::styled_label">styled_<wbr>label</a></dt><dd>Inline text with composable style flags.</dd><dt><a class="fn" href="fn.styled_label_rich.html" title="fn litui::styled_label_rich">styled_<wbr>label_<wbr>rich</a></dt><dd>Fully parameterized label for frontmatter-styled text.
+Color/background are <code>Option&lt;[u8; 3]&gt;</code> RGB tuples resolved at compile time.</dd><dt><a class="fn" href="fn.toggle_switch.html" title="fn litui::toggle_switch">toggle_<wbr>switch</a></dt><dd>iOS-style toggle switch widget. Click to flip the boolean.</dd><dt><a class="fn" href="fn.underline.html" title="fn litui::underline">underline</a></dt><dd>Legacy: render underlined text. Prefer <code>styled_label_rich</code>.</dd><dt><a class="fn" href="fn.weak.html" title="fn litui::weak">weak</a></dt><dd>Legacy: render weak (dimmed) text. Prefer <code>styled_label_rich</code> with <code>weak: true</code>.</dd></dl></section></div></main></body></html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Hello Markdown"><title>litui::_tutorial::_01_hello_markdown - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="litui" data-themes="" data-resource-suffix="" data-rustdoc-version="1.96.0 (ac68faa20 2026-05-25)" data-channel="1.96.0" data-search-js="search-b5634cc7.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module _01_hello_markdown</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../litui/index.html">litui</a><span class="version">0.34.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module _01_<wbr>hello_<wbr>markdown</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#hello-markdown" title="Hello Markdown">Hello Markdown</a><ul><li><a href="#the-markdown" title="The markdown">The markdown</a></li><li><a href="#the-rust" title="The Rust">The Rust</a></li><li><a href="#supported-elements" title="Supported elements">Supported elements</a></li><li><a href="#expert-tip" title="Expert tip">Expert tip</a></li><li><a href="#what-we-built" title="What we built">What we built</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In litui::<wbr>_<wbr>tutorial</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">litui</a>::<wbr><a href="../index.html">_tutorial</a></div><h1>Module <span>_01_<wbr>hello_<wbr>markdown</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/litui/_tutorial/mod.rs.html#23">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="hello-markdown"><a class="doc-anchor" href="#hello-markdown">§</a>Hello Markdown</h2>
+<blockquote>
+<p>Run it: <code>cargo run -p tut_01_hello</code></p>
+</blockquote>
+<p>litui turns markdown into native egui widgets at compile time. No runtime parsing, no overhead — just write <code>.md</code> and get a UI.</p>
+<h3 id="the-markdown"><a class="doc-anchor" href="#the-markdown">§</a>The markdown</h3><div class="example-wrap"><pre class="language-text"><code># Hello litui
+
+This is a **bold** statement with *italic* and ~~strikethrough~~ text.
+
+## Lists
+
+- First item
+- Second item with **bold**
+- Nested list:
+  - Sub-item one
+  - Sub-item two
+
+1. Ordered first
+2. Ordered second
+
+## Blockquotes
+
+&gt; This is a blockquote.
+&gt; It can span multiple lines.
+
+## Code
+
+Inline `code` works too.
+
+## Links
+
+Visit [egui](https://github.com/emilk/egui) for more.</code></pre></div><h3 id="the-rust"><a class="doc-anchor" href="#the-rust">§</a>The Rust</h3>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use </span>eframe::egui;
+<span class="kw">use </span>litui::<span class="kw-2">*</span>;
+
+<span class="kw">fn </span>main() -&gt; eframe::Result {
+    eframe::run_simple_native(<span class="string">"01 Hello"</span>, Default::default(), |ctx, <span class="kw">_</span>| {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                <span class="kw">let </span>render = <span class="macro">include_litui_ui!</span>(<span class="string">"content.md"</span>);
+                render(ui);
+            });
+        });
+    })
+}</code></pre></div>
+<p><code>include_litui_ui!</code> reads the <code>.md</code> file at compile time and returns a closure that renders egui widgets. Call it with <code>render(ui)</code> — that’s it.</p>
+<h3 id="supported-elements"><a class="doc-anchor" href="#supported-elements">§</a>Supported elements</h3><div><table><thead><tr><th>Markdown</th><th>Renders as</th></tr></thead><tbody>
+<tr><td><code># Heading</code></td><td><code>h1()</code> / <code>h2()</code> / <code>h3()</code> sized labels</td></tr>
+<tr><td><code>**bold**</code></td><td>Bold <code>RichText</code></td></tr>
+<tr><td><code>*italic*</code></td><td>Italic <code>RichText</code></td></tr>
+<tr><td><code>`code`</code></td><td>Monospace with background</td></tr>
+<tr><td><code>- item</code></td><td>Indented bullet list</td></tr>
+<tr><td><code>1. item</code></td><td>Numbered list</td></tr>
+<tr><td><code>&gt; quote</code></td><td>Vertical bar + indented text</td></tr>
+<tr><td><code>[text](url)</code></td><td>Clickable hyperlink</td></tr>
+<tr><td><code>---</code></td><td>Horizontal separator</td></tr>
+<tr><td>Fenced code blocks</td><td>Monospace group with background</td></tr>
+</tbody></table>
+</div><h3 id="expert-tip"><a class="doc-anchor" href="#expert-tip">§</a>Expert tip</h3>
+<p>The macro runs during <code>cargo build</code>, not at runtime. It parses the markdown with pulldown-cmark, walks the event stream, and emits Rust function calls (<code>h1(ui, "Hello")</code>, <code>styled_label(ui, "bold text", true, false, false)</code>, etc.). The result is a closure with zero allocation and zero parsing at runtime — just direct egui API calls baked into your binary.</p>
+<h3 id="what-we-built"><a class="doc-anchor" href="#what-we-built">§</a>What we built</h3>
+<p>A static markdown page rendered as native egui widgets with one line of Rust.</p>
+</div></details></section></div></main></body></html>

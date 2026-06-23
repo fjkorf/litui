@@ -1,0 +1,66 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Frontmatter Styles"><title>litui::_tutorial::_02_frontmatter_styles - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="litui" data-themes="" data-resource-suffix="" data-rustdoc-version="1.96.0 (ac68faa20 2026-05-25)" data-channel="1.96.0" data-search-js="search-b5634cc7.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module _02_frontmatter_styles</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../litui/index.html">litui</a><span class="version">0.34.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module _02_<wbr>frontmatter_<wbr>styles</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#frontmatter-styles" title="Frontmatter Styles">Frontmatter Styles</a><ul><li><a href="#whats-new" title="What’s new">What’s new</a></li><li><a href="#the-frontmatter" title="The frontmatter">The frontmatter</a></li><li><a href="#applying-styles" title="Applying styles">Applying styles</a></li><li><a href="#style-properties" title="Style properties">Style properties</a></li><li><a href="#semantic-color-keywords" title="Semantic color keywords">Semantic color keywords</a></li><li><a href="#theme-aware-by-default" title="Theme-aware by default">Theme-aware by default</a></li><li><a href="#expert-tip" title="Expert tip">Expert tip</a></li><li><a href="#what-we-built" title="What we built">What we built</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In litui::<wbr>_<wbr>tutorial</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">litui</a>::<wbr><a href="../index.html">_tutorial</a></div><h1>Module <span>_02_<wbr>frontmatter_<wbr>styles</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/litui/_tutorial/mod.rs.html#27">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="frontmatter-styles"><a class="doc-anchor" href="#frontmatter-styles">§</a>Frontmatter Styles</h2>
+<blockquote>
+<p>Run it: <code>cargo run -p tut_02_styles</code></p>
+</blockquote>
+<p>This tutorial adds <strong>YAML frontmatter</strong> to control colors, sizes, and text decoration. Styles are resolved at compile time — zero runtime cost.</p>
+<h3 id="whats-new"><a class="doc-anchor" href="#whats-new">§</a>What’s new</h3>
+<p>A <code>---</code>-delimited YAML block at the top of the file defines named style presets. Apply them with <code>::key</code> suffixes on paragraphs, headings, and list items, or <code>::key(text)</code> for inline spans.</p>
+<h3 id="the-frontmatter"><a class="doc-anchor" href="#the-frontmatter">§</a>The frontmatter</h3><div class="example-wrap"><pre class="language-yaml"><code>---
+styles:
+  title:
+    bold: true
+    color: &quot;#FFD700&quot;
+    size: 28.0
+  accent:
+    color: &quot;#FF6B00&quot;
+    bold: true
+  danger:
+    bold: true
+    color: &quot;#FF4444&quot;
+  success:
+    bold: true
+    color: &quot;#00CC66&quot;
+  muted:
+    italic: true
+    color: &quot;#888888&quot;
+    weak: true
+---</code></pre></div><h3 id="applying-styles"><a class="doc-anchor" href="#applying-styles">§</a>Applying styles</h3><div class="example-wrap"><pre class="language-text"><code># Hello litui ::title
+
+This paragraph has a success style. ::success
+
+This paragraph warns of danger. ::danger
+
+::accent(This inline span is orange and bold.)
+
+::muted(This text is gray and subtle.)</code></pre></div>
+<ul>
+<li><code>::title</code> after a heading applies the <code>title</code> style (gold, bold, 28pt)</li>
+<li><code>::success</code> after a paragraph applies green bold text</li>
+<li><code>::accent(text)</code> wraps a specific span in the <code>accent</code> style</li>
+</ul>
+<h3 id="style-properties"><a class="doc-anchor" href="#style-properties">§</a>Style properties</h3><div><table><thead><tr><th>Property</th><th>Type</th><th>Effect</th></tr></thead><tbody>
+<tr><td><code>bold</code></td><td>bool</td><td>Bold weight</td></tr>
+<tr><td><code>italic</code></td><td>bool</td><td>Italic</td></tr>
+<tr><td><code>strikethrough</code></td><td>bool</td><td>Strikethrough</td></tr>
+<tr><td><code>underline</code></td><td>bool</td><td>Underline</td></tr>
+<tr><td><code>color</code></td><td><code>"#RRGGBB"</code> or keyword</td><td>Text color</td></tr>
+<tr><td><code>background</code></td><td><code>"#RRGGBB"</code> or keyword</td><td>Background highlight</td></tr>
+<tr><td><code>size</code></td><td>float</td><td>Font size in points</td></tr>
+<tr><td><code>monospace</code></td><td>bool</td><td>Monospace font</td></tr>
+<tr><td><code>weak</code></td><td>bool</td><td>Dimmed text</td></tr>
+</tbody></table>
+</div><h3 id="semantic-color-keywords"><a class="doc-anchor" href="#semantic-color-keywords">§</a>Semantic color keywords</h3>
+<p>Instead of hex, use a keyword to reference egui’s built-in theme colors:</p>
+<div class="example-wrap"><pre class="language-yaml"><code>styles:
+  danger: { color: error, bold: true }     # adapts to dark/light
+  muted: { color: weak, italic: true }     # dimmed in both themes
+  link_style: { color: hyperlink }         # matches egui link color</code></pre></div>
+<p>Available keywords: <code>text</code>, <code>strong</code>, <code>weak</code>, <code>hyperlink</code>, <code>warn</code>, <code>error</code>, <code>code_bg</code>, <code>faint_bg</code>, <code>extreme_bg</code>, <code>panel_fill</code>, <code>window_fill</code>, <code>selection</code>.</p>
+<p>Hex (<code>#RRGGBB</code>) and keywords mix freely. Hex is fixed across themes; keywords adapt automatically.</p>
+<h3 id="theme-aware-by-default"><a class="doc-anchor" href="#theme-aware-by-default">§</a>Theme-aware by default</h3>
+<p>litui reads heading, text, code, and list-marker colors from egui’s current <code>Visuals</code> at runtime. Default text (without explicit frontmatter colors) automatically adapts when you switch between dark and light mode. Frontmatter hex overrides like <code>color: "#FF0000"</code> are fixed — they look the same in both themes. Use semantic keywords like <code>color: error</code> when you want the color to adapt. See <a href="../_10_advanced_widgets/index.html" title="mod litui::_tutorial::_10_advanced_widgets">Tutorial 10</a> for how to wire a dark mode toggle and configure global theme colors.</p>
+<h3 id="expert-tip"><a class="doc-anchor" href="#expert-tip">§</a>Expert tip</h3>
+<p>The macro calls <code>detect_style_suffix()</code> at each flush point (end of paragraph, heading, list item). It finds the trailing <code>::key</code>, looks it up in the frontmatter <code>styles</code> map, and emits a <code>styled_label_rich()</code> call with all properties as compile-time literals: <code>styled_label_rich(ui, "text", true, false, false, false, Some([255, 215, 0]), None, Some(28.0), false, false)</code>. The hex color <code>"#FFD700"</code> becomes <code>[255, 215, 0]</code> at compile time — no parsing at runtime.</p>
+<h3 id="what-we-built"><a class="doc-anchor" href="#what-we-built">§</a>What we built</h3>
+<p>Styled markdown with named color presets, all resolved at compile time.</p>
+</div></details></section></div></main></body></html>

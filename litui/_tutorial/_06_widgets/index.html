@@ -1,0 +1,49 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Widgets"><title>litui::_tutorial::_06_widgets - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="litui" data-themes="" data-resource-suffix="" data-rustdoc-version="1.96.0 (ac68faa20 2026-05-25)" data-channel="1.96.0" data-search-js="search-b5634cc7.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module _06_widgets</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../litui/index.html">litui</a><span class="version">0.34.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module _06_<wbr>widgets</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#widgets" title="Widgets">Widgets</a><ul><li><a href="#whats-new" title="What’s new">What’s new</a></li><li><a href="#widget-syntax" title="Widget syntax">Widget syntax</a></li><li><a href="#widget-configs" title="Widget configs">Widget configs</a></li><li><a href="#state-generation" title="State generation">State generation</a></li><li><a href="#expert-tip" title="Expert tip">Expert tip</a></li><li><a href="#what-we-built" title="What we built">What we built</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In litui::<wbr>_<wbr>tutorial</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">litui</a>::<wbr><a href="../index.html">_tutorial</a></div><h1>Module <span>_06_<wbr>widgets</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/litui/_tutorial/mod.rs.html#43">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="widgets"><a class="doc-anchor" href="#widgets">§</a>Widgets</h2>
+<blockquote>
+<p>Run it: <code>cargo run -p tut_06_widgets</code></p>
+</blockquote>
+<p>This tutorial adds <strong>interactive widgets</strong> — sliders, checkboxes, text inputs, buttons, and display fields. The macro auto-generates a state struct.</p>
+<h3 id="whats-new"><a class="doc-anchor" href="#whats-new">§</a>What’s new</h3>
+<p>Widget directives use markdown link syntax: <code>[widget_type](field_name)</code>. The macro detects the widget type, declares a field on the generated state struct, and emits the corresponding egui widget.</p>
+<h3 id="widget-syntax"><a class="doc-anchor" href="#widget-syntax">§</a>Widget syntax</h3><div class="example-wrap"><pre class="language-text"><code>[slider](volume){vol}
+
+[checkbox](muted)
+
+[textedit](name){name_cfg}
+
+[button](Submit)
+
+[display](name)</code></pre></div>
+<ul>
+<li><code>[slider](volume)</code> — creates <code>volume: f64</code> on state, renders <code>egui::Slider</code></li>
+<li><code>{vol}</code> — references a widget config from frontmatter for min/max/label</li>
+<li><code>[checkbox](muted)</code> — creates <code>muted: bool</code>, renders checkbox</li>
+<li><code>[textedit](name)</code> — creates <code>name: String</code>, renders single-line text input</li>
+<li><code>[button](Submit)</code> — renders a button (stateless unless <code>{config}</code> added)</li>
+<li><code>[display](name)</code> — reads <code>name</code> from state and renders as a label</li>
+</ul>
+<h3 id="widget-configs"><a class="doc-anchor" href="#widget-configs">§</a>Widget configs</h3><div class="example-wrap"><pre class="language-yaml"><code>widgets:
+  vol:
+    min: 0
+    max: 100
+    label: Volume
+  name_cfg:
+    hint: Enter your name</code></pre></div>
+<p>Attach a config with <code>{key}</code> after the widget link.</p>
+<h3 id="state-generation"><a class="doc-anchor" href="#state-generation">§</a>State generation</h3>
+<p>With widgets, <code>include_litui_ui!</code> returns a tuple:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">let </span>(render, <span class="kw-2">mut </span>state) = <span class="macro">include_litui_ui!</span>(<span class="string">"content.md"</span>);
+
+<span class="comment">// In your update loop:
+</span>render(ui, <span class="kw-2">&amp;mut </span>state);
+
+<span class="comment">// Access state fields:
+</span><span class="macro">println!</span>(<span class="string">"Volume: {}"</span>, state.volume);
+<span class="macro">println!</span>(<span class="string">"Name: {}"</span>, state.name);</code></pre></div>
+<p>The generated <code>LituiFormState</code> struct has one <code>pub</code> field per widget, all with <code>Default</code>.</p>
+<h3 id="expert-tip"><a class="doc-anchor" href="#expert-tip">§</a>Expert tip</h3>
+<p>Widget detection works by intercepting markdown links. When the parser sees <code>[slider](volume)</code>, it checks the link text against <code>WIDGET_NAMES</code> — a compile-time list of 18 recognized widget types. If matched, the URL becomes the field name and a lookahead checks the next text event for <code>{config}</code>. The link never becomes a hyperlink — it’s consumed as a widget directive. This means any unrecognized <code>[text](url)</code> still renders as a normal clickable link.</p>
+<h3 id="what-we-built"><a class="doc-anchor" href="#what-we-built">§</a>What we built</h3>
+<p>Interactive form widgets with auto-generated state, configured via YAML frontmatter.</p>
+</div></details></section></div></main></body></html>

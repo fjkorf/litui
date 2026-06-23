@@ -1,0 +1,86 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Multi-Page Apps"><title>litui::_tutorial::_08_multi_page_apps - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="litui" data-themes="" data-resource-suffix="" data-rustdoc-version="1.96.0 (ac68faa20 2026-05-25)" data-channel="1.96.0" data-search-js="search-b5634cc7.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module _08_multi_page_apps</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../litui/index.html">litui</a><span class="version">0.34.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module _08_<wbr>multi_<wbr>page_<wbr>apps</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#multi-page-apps" title="Multi-Page Apps">Multi-Page Apps</a><ul><li><a href="#whats-new" title="What’s new">What’s new</a></li><li><a href="#the-macro" title="The macro">The macro</a></li><li><a href="#page-frontmatter" title="Page frontmatter">Page frontmatter</a></li><li><a href="#parent-frontmatter" title="Parent frontmatter">Parent frontmatter</a></li><li><a href="#container-panels" title="Container panels">Container panels</a></li><li><a href="#panelwindow-visibility-control" title="Panel/window visibility control">Panel/window visibility control</a></li><li><a href="#panel-backgrounds" title="Panel backgrounds">Panel backgrounds</a></li><li><a href="#navigation-control" title="Navigation control">Navigation control</a></li><li><a href="#expert-tip" title="Expert tip">Expert tip</a></li><li><a href="#what-we-built" title="What we built">What we built</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In litui::<wbr>_<wbr>tutorial</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">litui</a>::<wbr><a href="../index.html">_tutorial</a></div><h1>Module <span>_08_<wbr>multi_<wbr>page_<wbr>apps</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/litui/_tutorial/mod.rs.html#51">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="multi-page-apps"><a class="doc-anchor" href="#multi-page-apps">§</a>Multi-Page Apps</h2>
+<blockquote>
+<p>Run it: <code>cargo run -p tut_08_multi_page</code></p>
+</blockquote>
+<p>This tutorial switches from <code>include_litui_ui!</code> to <code>define_litui_app!</code> — generating a full multi-page app with navigation, shared state, and container panels.</p>
+<h3 id="whats-new"><a class="doc-anchor" href="#whats-new">§</a>What’s new</h3>
+<p><code>define_litui_app!</code> reads multiple <code>.md</code> files, each with a <code>page:</code> frontmatter section. It generates a <code>Page</code> enum, shared <code>AppState</code>, per-page render functions, and an <code>LituiApp</code> struct with navigation.</p>
+<h3 id="the-macro"><a class="doc-anchor" href="#the-macro">§</a>The macro</h3>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>pages {
+    <span class="kw">use </span>egui;
+    <span class="kw">use </span>litui::<span class="kw-2">*</span>;
+
+    <span class="macro">define_litui_app!</span> {
+        parent: <span class="string">"content/_app.md"</span>,
+        <span class="string">"content/about.md"</span>,
+        <span class="string">"content/form.md"</span>,
+        <span class="string">"content/monitor.md"</span>,
+    }
+}</code></pre></div><h3 id="page-frontmatter"><a class="doc-anchor" href="#page-frontmatter">§</a>Page frontmatter</h3>
+<p>Each page needs a <code>page:</code> section:</p>
+<div class="example-wrap"><pre class="language-yaml"><code>---
+page:
+  name: About
+  label: About
+  default: true
+---</code></pre></div>
+<ul>
+<li><code>name</code> — Rust enum variant (e.g., <code>Page::About</code>)</li>
+<li><code>label</code> — display text in navigation</li>
+<li><code>default: true</code> — the landing page (exactly one required)</li>
+</ul>
+<h3 id="parent-frontmatter"><a class="doc-anchor" href="#parent-frontmatter">§</a>Parent frontmatter</h3>
+<p><code>_app.md</code> defines shared styles and widget configs inherited by all pages:</p>
+<div class="example-wrap"><pre class="language-yaml"><code>---
+styles:
+  title: { bold: true, color: &quot;#FFD700&quot;, size: 28.0 }
+  panel: { inner_margin: 8, background: &quot;#1A1A2E&quot;, corner_radius: 4 }
+widgets:
+  vol: { min: 0, max: 100, label: Volume }
+---</code></pre></div>
+<p>No <code>page:</code> section — it’s a parent, not a page.</p>
+<h3 id="container-panels"><a class="doc-anchor" href="#container-panels">§</a>Container panels</h3>
+<p>Add <code>panel:</code> to place a page in a persistent side panel:</p>
+<div class="example-wrap"><pre class="language-yaml"><code>page:
+  name: Monitor
+  label: Monitor
+  panel: right
+  width: 200</code></pre></div>
+<p>Panel values: <code>left</code>, <code>right</code>, <code>top</code>, <code>bottom</code>, <code>window</code>. Omit for central panel (default).</p>
+<p>When any page has <code>panel:</code>, <code>LituiApp</code> gains <code>show_all(&amp;egui::Context)</code>:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="self">self</span>.md.show_all(ctx);  <span class="comment">// one line renders everything</span></code></pre></div>
+<p>Side panels are always visible. Central pages switch via navigation. Windows appear on demand.</p>
+<h3 id="panelwindow-visibility-control"><a class="doc-anchor" href="#panelwindow-visibility-control">§</a>Panel/window visibility control</h3>
+<p>Add <code>open:</code> to give any panel or window state-driven visibility:</p>
+<div class="example-wrap"><pre class="language-yaml"><code>page:
+  name: Log
+  panel: window
+  open: show_log</code></pre></div>
+<p>This auto-declares <code>show_log: bool</code> on <code>AppState</code> (default <code>false</code>). For windows, this adds an X close button. For side/top/bottom panels, the panel is hidden when the bool is <code>false</code>. Set <code>state.show_log = true</code> to open it from code.</p>
+<p><code>open:</code> works on all panel types: <code>left</code>, <code>right</code>, <code>top</code>, <code>bottom</code>, and <code>window</code>.</p>
+<h3 id="panel-backgrounds"><a class="doc-anchor" href="#panel-backgrounds">§</a>Panel backgrounds</h3>
+<p>Set a custom background color on any panel or window:</p>
+<div class="example-wrap"><pre class="language-yaml"><code>page:
+  name: Shapes
+  panel: left
+  width: 220
+  background: transparent</code></pre></div>
+<p>Supports <code>transparent</code>, hex colors (<code>"#1A1A2E"</code>), and 8-digit hex with alpha (<code>"#1A1A2E80"</code> for semi-transparent). When all panels are transparent and there are no central pages, <code>show_all()</code> skips the <code>CentralPanel</code> entirely — useful for Bevy apps where the 3D viewport fills the background.</p>
+<h3 id="navigation-control"><a class="doc-anchor" href="#navigation-control">§</a>Navigation control</h3>
+<p>By default, only central pages (no <code>panel:</code>) appear in <code>show_nav()</code>. Panel and window pages are excluded. Override with <code>navigable:</code>:</p>
+<div class="example-wrap"><pre class="language-yaml"><code>page:
+  name: Stats
+  panel: right
+  navigable: true   # force into nav bar</code></pre></div>
+<p>The generated <code>Page</code> enum has both <code>ALL</code> (every page) and <code>NAV_PAGES</code> (only navigable pages).</p>
+<p>Configure the nav bar itself in the parent <code>_app.md</code>:</p>
+<div class="example-wrap"><pre class="language-yaml"><code>nav:
+  position: top      # &quot;top&quot; | &quot;bottom&quot; | &quot;none&quot;
+  show_all: false    # if true, include panels/windows in nav</code></pre></div>
+<p><code>position: "none"</code> disables the auto nav panel — call <code>show_nav(ui)</code> manually for custom placement.</p>
+<h3 id="expert-tip"><a class="doc-anchor" href="#expert-tip">§</a>Expert tip</h3>
+<p><code>define_litui_app!</code> calls <code>load_and_parse_md()</code> for each file, merging parent frontmatter into each child. The codegen generates: a <code>Page</code> enum with <code>ALL</code> and <code>NAV_PAGES</code> constants and <code>label()</code> method, a flat <code>AppState</code> struct merging all widget fields across pages (two pages can share a field if types match), per-page <code>render_*()</code> functions with the correct signature (<code>&amp;mut AppState</code> for mutable widgets, <code>&amp;AppState</code> for display-only, or just <code>&amp;mut Ui</code> for stateless), and <code>LituiApp</code> with <code>show_nav()</code>, <code>show_page()</code>, and optionally <code>show_all()</code>.</p>
+<h3 id="what-we-built"><a class="doc-anchor" href="#what-we-built">§</a>What we built</h3>
+<p>A multi-page app with navigation, shared state, parent inheritance, and container panels — from markdown files.</p>
+</div></details></section></div></main></body></html>

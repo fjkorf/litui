@@ -1,0 +1,59 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Styled Containers"><title>litui::_tutorial::_05_styled_containers - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="litui" data-themes="" data-resource-suffix="" data-rustdoc-version="1.96.0 (ac68faa20 2026-05-25)" data-channel="1.96.0" data-search-js="search-b5634cc7.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module _05_styled_containers</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../litui/index.html">litui</a><span class="version">0.34.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module _05_<wbr>styled_<wbr>containers</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#styled-containers" title="Styled Containers">Styled Containers</a><ul><li><a href="#whats-new" title="What’s new">What’s new</a></li><li><a href="#styled-blockquotes" title="Styled blockquotes">Styled blockquotes</a></li><li><a href="#styled-lists" title="Styled lists">Styled lists</a></li><li><a href="#frame-containers" title="Frame containers">Frame containers</a></li><li><a href="#frame-properties" title="Frame properties">Frame properties</a></li><li><a href="#expert-tip" title="Expert tip">Expert tip</a></li><li><a href="#what-we-built" title="What we built">What we built</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In litui::<wbr>_<wbr>tutorial</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">litui</a>::<wbr><a href="../index.html">_tutorial</a></div><h1>Module <span>_05_<wbr>styled_<wbr>containers</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/litui/_tutorial/mod.rs.html#39">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="styled-containers"><a class="doc-anchor" href="#styled-containers">§</a>Styled Containers</h2>
+<blockquote>
+<p>Run it: <code>cargo run -p tut_05_containers</code></p>
+</blockquote>
+<p>This tutorial adds <strong>styled blockquotes</strong>, <strong>styled lists</strong>, and <strong>frame containers</strong> — applying frontmatter styles to structural elements.</p>
+<h3 id="whats-new"><a class="doc-anchor" href="#whats-new">§</a>What’s new</h3>
+<p>The <code>::key</code> suffix works on blockquotes and list items to color their structural elements (quote bars, bullet dots, numbers). Frame styles with box-model properties wrap content in <code>egui::Frame</code>.</p>
+<h3 id="styled-blockquotes"><a class="doc-anchor" href="#styled-blockquotes">§</a>Styled blockquotes</h3><div class="example-wrap"><pre class="language-text"><code>&gt; Operation completed successfully. ::success
+
+&gt; Critical failure detected. ::danger
+
+&gt; Approaching rate limit. ::warning</code></pre></div>
+<p>The style’s <code>color</code> is applied to both the vertical quote bar AND the text content.</p>
+<h3 id="styled-lists"><a class="doc-anchor" href="#styled-lists">§</a>Styled lists</h3><div class="example-wrap"><pre class="language-text"><code>- All systems operational ::success
+- Deployment pending ::warning
+- Build failed on main ::danger
+
+1. Configure environment ::success
+2. Review settings ::warning
+3. Fix vulnerability ::danger</code></pre></div>
+<p>Bullet dots and numbers inherit the style color.</p>
+<h3 id="frame-containers"><a class="doc-anchor" href="#frame-containers">§</a>Frame containers</h3>
+<p>Add frame properties to a style:</p>
+<div class="example-wrap"><pre class="language-yaml"><code>styles:
+  panel:
+    inner_margin: 8
+    background: &quot;#1A1A2E&quot;
+    corner_radius: 4
+  alert:
+    inner_margin: 10
+    stroke: 2
+    stroke_color: &quot;#FF4444&quot;
+    corner_radius: 6
+    color: &quot;#FF6666&quot;
+    bold: true</code></pre></div>
+<p>Wrap content with <code>::: frame stylename</code>:</p>
+<div class="example-wrap"><pre class="language-text"><code>::: frame panel
+
+Padded content with a dark background.
+
+:::
+
+::: frame alert
+
+Alert box with a red border and colored text.
+
+:::</code></pre></div><h3 id="frame-properties"><a class="doc-anchor" href="#frame-properties">§</a>Frame properties</h3><div><table><thead><tr><th>Property</th><th>egui API</th><th>Effect</th></tr></thead><tbody>
+<tr><td><code>inner_margin</code></td><td><code>Frame::inner_margin()</code></td><td>Padding inside the frame</td></tr>
+<tr><td><code>outer_margin</code></td><td><code>Frame::outer_margin()</code></td><td>Margin outside the frame</td></tr>
+<tr><td><code>stroke</code></td><td><code>Frame::stroke()</code> width</td><td>Border width</td></tr>
+<tr><td><code>stroke_color</code></td><td><code>Frame::stroke()</code> color</td><td>Border color</td></tr>
+<tr><td><code>corner_radius</code></td><td><code>Frame::corner_radius()</code></td><td>Rounded corners</td></tr>
+<tr><td><code>background</code></td><td><code>Frame::fill()</code></td><td>Background color</td></tr>
+</tbody></table>
+</div><h3 id="expert-tip"><a class="doc-anchor" href="#expert-tip">§</a>Expert tip</h3>
+<p>Frame properties map directly to egui’s box model. The CSS equivalents are: <code>inner_margin</code> = <code>padding</code>, <code>outer_margin</code> = <code>margin</code>, <code>stroke</code> = <code>border-width</code>, <code>corner_radius</code> = <code>border-radius</code>, <code>background</code> = <code>background-color</code>. The <code>::: frame</code> block directive uses the same <code>code_body</code> swap pattern as other block directives — it saves the current code body, accumulates content, then wraps everything in <code>egui::Frame::default().inner_margin(...).show(ui, |ui| { body })</code>.</p>
+<h3 id="what-we-built"><a class="doc-anchor" href="#what-we-built">§</a>What we built</h3>
+<p>Colored blockquote bars, styled list bullets, and CSS-like frame containers — all from frontmatter styles.</p>
+</div></details></section></div></main></body></html>

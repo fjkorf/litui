@@ -1,0 +1,95 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Advanced Widgets"><title>litui::_tutorial::_10_advanced_widgets - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="litui" data-themes="" data-resource-suffix="" data-rustdoc-version="1.96.0 (ac68faa20 2026-05-25)" data-channel="1.96.0" data-search-js="search-b5634cc7.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module _10_advanced_widgets</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../litui/index.html">litui</a><span class="version">0.34.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module _10_<wbr>advanced_<wbr>widgets</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#advanced-widgets" title="Advanced Widgets">Advanced Widgets</a><ul><li><a href="#whats-new" title="What’s new">What’s new</a></li><li><a href="#selection-widgets" title="Selection widgets">Selection widgets</a></li><li><a href="#input-widgets" title="Input widgets">Input widgets</a></li><li><a href="#numeric-precision" title="Numeric precision">Numeric precision</a></li><li><a href="#display-widgets" title="Display widgets">Display widgets</a></li><li><a href="#styled-buttons-with-selectors" title="Styled buttons with selectors">Styled buttons with selectors</a></li><li><a href="#advanced-button-tracking" title="Advanced button tracking">Advanced button tracking</a></li><li><a href="#theme-switching" title="Theme switching">Theme switching</a></li><li><a href="#global-theme-customization" title="Global theme customization">Global theme customization</a></li><li><a href="#expert-tip" title="Expert tip">Expert tip</a></li><li><a href="#what-we-built" title="What we built">What we built</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In litui::<wbr>_<wbr>tutorial</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">litui</a>::<wbr><a href="../index.html">_tutorial</a></div><h1>Module <span>_10_<wbr>advanced_<wbr>widgets</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/litui/_tutorial/mod.rs.html#59">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="advanced-widgets"><a class="doc-anchor" href="#advanced-widgets">§</a>Advanced Widgets</h2>
+<blockquote>
+<p>Run it: <code>cargo run -p tut_10_advanced</code></p>
+</blockquote>
+<p>This tutorial covers the <strong>remaining widget types</strong>, <strong>CSS-like selectors</strong>, and <strong>advanced button tracking</strong>.</p>
+<h3 id="whats-new"><a class="doc-anchor" href="#whats-new">§</a>What’s new</h3>
+<p>litui has 18 widget types total. Earlier tutorials covered slider, checkbox, textedit, button, and display. This tutorial adds the rest.</p>
+<h3 id="selection-widgets"><a class="doc-anchor" href="#selection-widgets">§</a>Selection widgets</h3><div class="example-wrap"><pre class="language-text"><code>[radio](size){size_opts}
+
+[combobox](color){color_opts}
+
+[selectable](view){view_opts}
+
+[select](chosen_species){species_list}</code></pre></div>
+<ul>
+<li><code>[radio]</code> — horizontal radio buttons from <code>options</code> list (<code>usize</code> index)</li>
+<li><code>[combobox]</code> — dropdown from <code>options</code> list (<code>usize</code> index)</li>
+<li><code>[selectable]</code> — clickable label group from <code>options</code> list (<code>usize</code> index)</li>
+<li><code>[select]</code> — scrollable list from a runtime <code>Vec&lt;String&gt;</code> field (<code>usize</code> index)</li>
+</ul>
+<p>Config:</p>
+<div class="example-wrap"><pre class="language-yaml"><code>widgets:
+  size_opts: { options: [&quot;Small&quot;, &quot;Medium&quot;, &quot;Large&quot;] }
+  species_list: { max_height: 120.0 }</code></pre></div><h3 id="input-widgets"><a class="doc-anchor" href="#input-widgets">§</a>Input widgets</h3><div class="example-wrap"><pre class="language-text"><code>[dragvalue](angle){angle_cfg}
+[textarea](notes){notes_cfg}
+[password](secret){secret_cfg}</code></pre></div>
+<ul>
+<li><code>[dragvalue]</code> — drag to change a number (<code>f64</code>, supports <code>min</code>/<code>max</code>/<code>speed</code>/<code>suffix</code>/<code>prefix</code>/<code>decimals</code>)</li>
+<li><code>[textarea]</code> — multi-line text input (<code>String</code>, supports <code>rows</code>/<code>hint</code>)</li>
+<li><code>[password]</code> — masked text input (<code>String</code>, supports <code>hint</code>)</li>
+</ul>
+<h3 id="numeric-precision"><a class="doc-anchor" href="#numeric-precision">§</a>Numeric precision</h3>
+<p>Sliders and drag values support precision options:</p>
+<div class="example-wrap"><pre class="language-yaml"><code>widgets:
+  octaves: { min: 0, max: 6, integer: true, label: Octaves }
+  rotation: { min: -180, max: 180, step: 5.0, suffix: &quot;°&quot; }
+  smooth_k: { min: 0.0, max: 0.1, decimals: 3 }
+  roughness: { min: 0.0, max: 1.0, speed: 0.01, decimals: 2 }</code></pre></div>
+<ul>
+<li><code>integer: true</code> — snap to whole numbers (slider only)</li>
+<li><code>step: 5.0</code> — quantize to discrete steps (slider only)</li>
+<li><code>decimals: 3</code> — fixed decimal places (slider and dragvalue)</li>
+<li><code>min</code>/<code>max</code> on dragvalue — clamps the drag range</li>
+<li><code>suffix</code>/<code>prefix</code> — works on both slider and dragvalue</li>
+</ul>
+<h3 id="display-widgets"><a class="doc-anchor" href="#display-widgets">§</a>Display widgets</h3><div class="example-wrap"><pre class="language-text"><code>[progress](hp_frac){hp_bar}
+[spinner]()
+[toggle](dark_mode)
+[color](tint)
+[log](messages){msg_cfg}</code></pre></div>
+<ul>
+<li><code>[progress]</code> — progress bar (<code>f64</code> 0.0–1.0, supports <code>fill</code> color)</li>
+<li><code>[spinner]</code> — animated loading indicator (stateless)</li>
+<li><code>[toggle]</code> — iOS-style toggle switch (<code>bool</code>)</li>
+<li><code>[color]</code> — color picker (<code>[u8; 4]</code> RGBA)</li>
+<li><code>[log]</code> — scrollable message list (<code>Vec&lt;String&gt;</code>, supports <code>max_height</code>)</li>
+</ul>
+<h3 id="styled-buttons-with-selectors"><a class="doc-anchor" href="#styled-buttons-with-selectors">§</a>Styled buttons with selectors</h3>
+<p>Apply frontmatter styles to widgets with <code>.class</code> syntax:</p>
+<div class="example-wrap"><pre class="language-text"><code>[button.primary](Submit){on_submit}
+[button.danger](Cancel)
+[button.primary.large](Big_Action)</code></pre></div>
+<p>Classes compose left-to-right: <code>.primary.large</code> merges both styles.</p>
+<h3 id="advanced-button-tracking"><a class="doc-anchor" href="#advanced-button-tracking">§</a>Advanced button tracking</h3><div class="example-wrap"><pre class="language-yaml"><code>widgets:
+  on_submit:
+    track_hover: true
+    track_secondary: true</code></pre></div>
+<p>Generates extra fields: <code>on_submit_count: u32</code> (always), <code>on_submit_hovered: bool</code>, <code>on_submit_secondary_count: u32</code>.</p>
+<h3 id="theme-switching"><a class="doc-anchor" href="#theme-switching">§</a>Theme switching</h3>
+<p>The <code>[toggle](dark_mode)</code> widget stores a <code>bool</code> on state. To apply it as an actual egui theme, call <code>ctx.set_visuals()</code> in your app’s <code>update()</code> function:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>ctx.set_visuals(<span class="kw">if </span><span class="self">self</span>.state.dark_mode {
+    egui::Visuals::dark()
+} <span class="kw">else </span>{
+    egui::Visuals::light()
+});</code></pre></div>
+<p>litui’s runtime helpers read all colors from <code>ui.visuals()</code>, so headings, text, code blocks, quote bars, and list markers automatically adapt. Styles using semantic keywords (like <code>color: error</code>) also adapt. Only hex colors (like <code>color: "#FF0000"</code>) remain fixed.</p>
+<h3 id="global-theme-customization"><a class="doc-anchor" href="#global-theme-customization">§</a>Global theme customization</h3>
+<p>Customize egui’s Visuals from your root <code>_app.md</code> frontmatter with a <code>theme:</code> section:</p>
+<div class="example-wrap"><pre class="language-yaml"><code>theme:
+  hyperlink_color: &quot;#00AAFF&quot;
+  dark:
+    panel_fill: &quot;#1E1E2E&quot;
+    code_bg_color: &quot;#2A2A3E&quot;
+  light:
+    panel_fill: &quot;#F0F0F5&quot;
+    code_bg_color: &quot;#E8E8F0&quot;</code></pre></div>
+<p>Base values apply to both themes. <code>dark:</code> and <code>light:</code> sub-sections apply conditionally. This generates a setup function called automatically in <code>show_all()</code>.</p>
+<p>Styles using semantic keywords like <code>background: panel_fill</code> will pick up these custom values — they reference the active Visuals at runtime.</p>
+<p>Run the example and toggle Dark Mode to see the entire UI switch between dark and light.</p>
+<h3 id="expert-tip"><a class="doc-anchor" href="#expert-tip">§</a>Expert tip</h3>
+<p>Third-party egui widgets can integrate via two patterns. <strong>Pattern A:</strong> Add a match arm to <code>WIDGET_NAMES</code> for directives like <code>[double_slider]</code> — the macro emits the widget call directly. <strong>Pattern B:</strong> Render macro-generated content alongside hand-coded widgets in the same <code>update()</code> function — the generated <code>render_*()</code> functions are just regular Rust functions you can call anywhere.</p>
+<h3 id="what-we-built"><a class="doc-anchor" href="#what-we-built">§</a>What we built</h3>
+<p>A complete widget showcase with selection controls, input fields, display widgets, styled buttons, and advanced response tracking.</p>
+</div></details></section></div></main></body></html>

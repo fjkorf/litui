@@ -1,0 +1,66 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Bevy Integration"><title>litui::_tutorial::_11_bevy_integration - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="litui" data-themes="" data-resource-suffix="" data-rustdoc-version="1.96.0 (ac68faa20 2026-05-25)" data-channel="1.96.0" data-search-js="search-b5634cc7.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module _11_bevy_integration</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../litui/index.html">litui</a><span class="version">0.34.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module _11_<wbr>bevy_<wbr>integration</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#bevy-integration" title="Bevy Integration">Bevy Integration</a><ul><li><a href="#whats-new" title="What’s new">What’s new</a></li><li><a href="#dependencies" title="Dependencies">Dependencies</a></li><li><a href="#app-setup" title="App setup">App setup</a></li><li><a href="#render-systems" title="Render systems">Render systems</a></li><li><a href="#transparent-panels-for-3d-viewports" title="Transparent panels for 3D viewports">Transparent panels for 3D viewports</a></li><li><a href="#expert-tip" title="Expert tip">Expert tip</a></li><li><a href="#what-we-built" title="What we built">What we built</a></li></ul></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In litui::<wbr>_<wbr>tutorial</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">litui</a>::<wbr><a href="../index.html">_tutorial</a></div><h1>Module <span>_11_<wbr>bevy_<wbr>integration</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/litui/_tutorial/mod.rs.html#63">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="bevy-integration"><a class="doc-anchor" href="#bevy-integration">§</a>Bevy Integration</h2>
+<blockquote>
+<p>Run it: <code>cargo run -p tut_11_bevy</code></p>
+</blockquote>
+<p>This tutorial shows litui running inside a <strong>Bevy app</strong> via <code>bevy_egui</code>.</p>
+<h3 id="whats-new"><a class="doc-anchor" href="#whats-new">§</a>What’s new</h3>
+<p>The markdown content is identical to previous tutorials. Only the Rust shell changes — from eframe to Bevy’s ECS-driven render loop.</p>
+<h3 id="dependencies"><a class="doc-anchor" href="#dependencies">§</a>Dependencies</h3><div class="example-wrap"><pre class="language-toml"><code>bevy = { version = &quot;0.18&quot;, default-features = false, features = [
+    &quot;bevy_winit&quot;, &quot;bevy_render&quot;, &quot;bevy_core_pipeline&quot;, &quot;bevy_pbr&quot;, &quot;x11&quot;,
+] }
+bevy_egui = &quot;0.39&quot;</code></pre></div><h3 id="app-setup"><a class="doc-anchor" href="#app-setup">§</a>App setup</h3>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugins(EguiPlugin::default())
+        .init_resource::&lt;Page&gt;()
+        .init_resource::&lt;AppState&gt;()
+        .add_systems(Startup, setup)
+        .add_systems(EguiPrimaryContextPass, (render_nav, render_page).chain())
+        .run();
+}</code></pre></div>
+<p><code>Page</code> and <code>AppState</code> are generated by <code>define_litui_app!</code> — implement <code>Resource</code> to use them as Bevy resources:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">impl </span>Resource <span class="kw">for </span>Page {}
+<span class="kw">impl </span>Resource <span class="kw">for </span>AppState {}</code></pre></div><h3 id="render-systems"><a class="doc-anchor" href="#render-systems">§</a>Render systems</h3>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">fn </span>render_nav(<span class="kw-2">mut </span>ctxs: EguiContexts, <span class="kw-2">mut </span>current: ResMut&lt;Page&gt;) -&gt; <span class="prelude-ty">Result </span>{
+    egui::TopBottomPanel::top(<span class="string">"nav"</span>).show(ctxs.ctx_mut()<span class="question-mark">?</span>, |ui| {
+        ui.horizontal(|ui| {
+            <span class="kw">for </span><span class="kw-2">&amp;</span>p <span class="kw">in </span>Page::ALL {
+                <span class="kw">if </span>ui.selectable_label(<span class="kw-2">*</span>current == p, p.label()).clicked() {
+                    <span class="kw-2">*</span>current = p;
+                }
+            }
+        });
+    });
+    <span class="prelude-val">Ok</span>(())
+}
+
+<span class="kw">fn </span>render_page(
+    <span class="kw-2">mut </span>ctxs: EguiContexts,
+    current: Res&lt;Page&gt;,
+    <span class="kw-2">mut </span>state: ResMut&lt;AppState&gt;,
+) -&gt; <span class="prelude-ty">Result </span>{
+    egui::CentralPanel::default().show(ctxs.ctx_mut()<span class="question-mark">?</span>, |ui| {
+        egui::ScrollArea::vertical().show(ui, |ui| <span class="kw">match </span><span class="kw-2">*</span>current {
+            Page::About =&gt; render_about(ui, <span class="kw-2">&amp;</span>state),
+            Page::Form =&gt; render_form(ui, <span class="kw-2">&amp;mut </span>state),
+        });
+    });
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div><h3 id="transparent-panels-for-3d-viewports"><a class="doc-anchor" href="#transparent-panels-for-3d-viewports">§</a>Transparent panels for 3D viewports</h3>
+<p>When building editor UIs over a Bevy 3D scene, use <code>background: transparent</code> on panels to let the viewport show through:</p>
+<div class="example-wrap"><pre class="language-yaml"><code>page:
+  name: Properties
+  panel: right
+  width: 280
+  background: transparent</code></pre></div>
+<p>When ALL pages have explicit <code>panel:</code> directives and none are central pages, <code>show_all()</code> skips the <code>CentralPanel</code> entirely — the Bevy renderer fills the background. Combine with <code>nav: { position: none }</code> if navigation is handled manually.</p>
+<p>Semi-transparent backgrounds also work for glass-panel effects:</p>
+<div class="example-wrap"><pre class="language-yaml"><code>background: &quot;#1A1A2E80&quot;</code></pre></div>
+<p>The <code>80</code> is hex alpha (50% opacity).</p>
+<h3 id="expert-tip"><a class="doc-anchor" href="#expert-tip">§</a>Expert tip</h3>
+<p>Bevy render systems that touch egui must run in the <code>EguiPrimaryContextPass</code> schedule — not <code>Update</code>. This ensures the egui context is available and properly synchronized with Bevy’s render pipeline. Business logic (updating <code>AppState</code> from game systems) runs in <code>Update</code> as normal. The <code>.chain()</code> on render systems ensures navigation renders before page content, avoiding a one-frame lag when switching pages.</p>
+<h3 id="what-we-built"><a class="doc-anchor" href="#what-we-built">§</a>What we built</h3>
+<p>The same litui multi-page app running natively in Bevy, with <code>Page</code> and <code>AppState</code> as ECS resources.</p>
+</div></details></section></div></main></body></html>
