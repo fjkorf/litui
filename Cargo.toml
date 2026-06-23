@@ -3,7 +3,7 @@ resolver = "3"
 members = [
     "crates/litui",
     "crates/markdown_to_egui_helpers",
-    "crates/markdown_to_egui_macro",
+    "crates/markdown_to_egui_macro", "crates/markdown_to_egui_parser",
     "examples/*",
     "tests/*",
 ]

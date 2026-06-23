@@ -24,11 +24,4 @@ styles:
     inner_margin: 8
     background: "#1A1A2E"
     corner_radius: 4
-widgets:
-  vol:
-    min: 0
-    max: 100
-    label: Volume
-  name_cfg:
-    hint: Enter your name
 ---

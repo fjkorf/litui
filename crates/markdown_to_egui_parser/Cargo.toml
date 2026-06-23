@@ -1,0 +1,14 @@
+[package]
+name = "markdown_to_egui_parser"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+serde = "1.0.228"
+proc-macro2 = "1.0"
+quote = "1.0"
+
+[lints]
+workspace = true

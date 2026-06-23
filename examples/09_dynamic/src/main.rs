@@ -1,10 +1,8 @@
 use eframe::egui;
-use litui::*;
 
 mod pages {
-    use egui;
+    use eframe::egui;
     use litui::*;
-
     define_markdown_app! {
         parent: "content/_app.md",
         "content/home.md",
@@ -20,34 +18,31 @@ fn main() -> eframe::Result {
         Default::default(),
         Box::new(|_cc| {
             let mut md = MdApp::default();
-            populate(&mut md.state);
+            // Set initial values directly on the generated struct if available
+            md.show_details = true;
+            md.status_text = "All systems operational".into();
+            md.status_style = "success".into();
+            md.items = vec![
+                // The macro should generate an items field of type Vec<Items> or similar
+                Items {
+                    name: "Iron Sword".into(),
+                    quantity: "1".into(),
+                    weight: "3.5 lb".into(),
+                },
+                Items {
+                    name: "Health Potion".into(),
+                    quantity: "5".into(),
+                    weight: "0.5 lb".into(),
+                },
+                Items {
+                    name: "Torch".into(),
+                    quantity: "3".into(),
+                    weight: "1.0 lb".into(),
+                },
+            ];
             Ok(Box::new(AppWrapper { md }))
         }),
     )
-}
-
-fn populate(state: &mut AppState) {
-    state.show_details = true;
-    state.status_text = "All systems operational".into();
-    state.status_style = "success".into();
-
-    state.items = vec![
-        ItemsRow {
-            name: "Iron Sword".into(),
-            quantity: "1".into(),
-            weight: "3.5 lb".into(),
-        },
-        ItemsRow {
-            name: "Health Potion".into(),
-            quantity: "5".into(),
-            weight: "0.5 lb".into(),
-        },
-        ItemsRow {
-            name: "Torch".into(),
-            quantity: "3".into(),
-            weight: "1.0 lb".into(),
-        },
-    ];
 }
 
 struct AppWrapper {

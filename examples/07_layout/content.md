@@ -28,13 +28,6 @@ styles:
     corner_radius: 6
     color: "#FF6666"
     bold: true
-widgets:
-  vol:
-    min: 0
-    max: 100
-    label: Volume
-  name_cfg:
-    hint: Enter your name
 spacing:
   paragraph: 6.0
   heading_h2: 14.0

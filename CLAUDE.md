@@ -54,6 +54,7 @@ cargo test -p litui --test generate_screenshots            # regen tutorial PNGs
 | [`third-party-widgets.md`](knowledge/third-party-widgets.md) | Integrating external egui widget crates (built-in vs manual patterns) |
 | [`bevy-ecs-integration.md`](knowledge/bevy-ecs-integration.md) | ECS state management, DemoApp architecture, future Bevy plans |
 | [`dynamic-styling-design.md`](knowledge/dynamic-styling-design.md) | **Design research** — `[style]` block, `{$field}`, container directives (not yet implemented) |
+| [`rustretro-showcase.md`](knowledge/rustretro-showcase.md) | **Design research** — first real-app showcase; drives the `[custom]` escape hatch and live-resource Bevy binding |
 | [`layout-and-spacing.md`](knowledge/layout-and-spacing.md) | Spacing defaults, CSS→egui mapping, future Frame/column plans |
 | [`api/API.md`](knowledge/api/API.md) | **Generated** — full struct fields, fn signatures, enum variants, consts, imports |
 

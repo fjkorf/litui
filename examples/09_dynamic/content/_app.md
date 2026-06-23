@@ -25,6 +25,4 @@ styles:
     background: "#1A1A2E"
     corner_radius: 4
 widgets:
-  name_cfg:
-    hint: Enter your name
 ---

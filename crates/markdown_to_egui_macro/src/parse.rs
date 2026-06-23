@@ -114,20 +114,32 @@ pub(crate) enum WidgetField {
         name: String,
         row_fields: Vec<String>,
     },
+    /// Custom escape hatch: `[custom](slot)` — generates a
+    /// `Option<Box<dyn FnMut(&mut egui::Ui) + Send + Sync>>` field that the
+    /// user fills in to draw raw egui at that location.
+    CustomSlot { name: String },
 }
 
 impl WidgetField {
     pub fn name(&self) -> &str {
         match self {
-            Self::Stateful { name, .. } | Self::Foreach { name, .. } => name,
+            Self::Stateful { name, .. }
+            | Self::Foreach { name, .. }
+            | Self::CustomSlot { name } => name,
         }
     }
 
     pub fn ty(&self) -> Option<WidgetType> {
         match self {
             Self::Stateful { ty, .. } => Some(*ty),
-            Self::Foreach { .. } => None,
+            Self::Foreach { .. } | Self::CustomSlot { .. } => None,
         }
+    }
+
+    /// True for `[custom](slot)` fields, which hold a boxed closure and
+    /// therefore cannot derive `Clone`/`Debug` on the state struct.
+    pub fn is_custom_slot(&self) -> bool {
+        matches!(self, Self::CustomSlot { .. })
     }
 }
 
@@ -871,6 +883,7 @@ pub(crate) fn markdown_to_egui(
         "selectable",
         "select",
         "log",
+        "custom",
     ];
 
     fn is_widget_name(name: &str) -> bool {
@@ -1765,6 +1778,35 @@ pub(crate) fn markdown_to_egui(
                                                 ui.label(__msg.as_str());
                                             }
                                         });
+                                }
+                            }
+                            "custom" => {
+                                // Escape hatch: register an Option<Box<dyn FnMut(&mut Ui)
+                                // + Send + Sync>> slot on the state struct. At render
+                                // time, if the user set the slot, call it with the
+                                // current `ui`; otherwise render nothing.
+                                //
+                                // The closure is taken out via Option::take during the
+                                // call and put back afterwards. This sidesteps borrow
+                                // conflicts: `state` is borrowed mutably to take the
+                                // closure, the borrow ends before the closure runs, and
+                                // the closure can therefore freely touch `ui` (and even
+                                // other state, if it captured handles) without aliasing
+                                // the `&mut AppState` that the render fn holds.
+                                references_state = true;
+                                let already =
+                                    widget_fields.iter().any(|f| f.name() == content);
+                                if !already {
+                                    widget_fields
+                                        .push(WidgetField::CustomSlot { name: content.clone() });
+                                }
+                                let field =
+                                    syn::Ident::new(&content, proc_macro2::Span::call_site());
+                                quote! {
+                                    if let Some(mut __slot) = state.#field.take() {
+                                        __slot(ui);
+                                        state.#field = Some(__slot);
+                                    }
                                 }
                             }
                             _ => {

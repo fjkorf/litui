@@ -10,7 +10,7 @@ page:
 
 ## Items
 
-::: foreach inv_items
+::: foreach inv_items{inv_items}
 
 | {letter} | {name} | {qty} |
 |-----------|--------|-------|

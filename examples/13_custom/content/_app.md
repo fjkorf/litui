@@ -4,16 +4,6 @@ styles:
     bold: true
     color: "#FFD700"
     size: 28.0
-  accent:
-    color: "#FF6B00"
-    bold: true
-  success:
-    bold: true
-    color: "#00CC66"
-  muted:
-    italic: true
-    color: "#888888"
-    weak: true
   panel:
     inner_margin: 8
     background: "#1A1A2E"
