@@ -34,5 +34,12 @@ styles:
     corner_radius: 4
     color: "#FF6666"
 widgets:
-
+  species_list:
+    max_height: 150.0
+  job_list:
+    max_height: 150.0
+  hp_bar:
+    fill: "#8B0000"
+  mp_bar:
+    fill: "#1E1E64"
 ---

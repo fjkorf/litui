@@ -4,6 +4,10 @@ page:
   label: Create Character
   default: true
 widgets:
+  species_list:
+    max_height: 150.0
+  job_list:
+    max_height: 150.0
 ---
 
 # Create Your Character ::title

@@ -6,7 +6,7 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-serde = "1.0.228"
+serde = { version = "1.0.228", features = ["derive"] }
 proc-macro2 = "1.0"
 quote = "1.0"
 

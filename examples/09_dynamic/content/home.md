@@ -11,7 +11,7 @@ This page demonstrates runtime data: foreach iteration, conditionals, and dynami
 
 ## Inventory
 
-::: foreach items{items}
+::: foreach items
 
 | {name} | {quantity} | {weight} |
 |--------|-----------|----------|
@@ -20,7 +20,7 @@ This page demonstrates runtime data: foreach iteration, conditionals, and dynami
 
 ## Conditional Section
 
-::: if show_details{show_details}
+::: if show_details
 
 ::: frame panel
 
@@ -32,4 +32,4 @@ This page demonstrates runtime data: foreach iteration, conditionals, and dynami
 
 ## Dynamic Status
 
-Server status: [display](status_text){status_text} ::$status_style{status_style}
+Server status: [display](status_text) ::$status_style

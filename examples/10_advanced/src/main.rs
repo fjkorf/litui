@@ -25,7 +25,6 @@ fn main() -> eframe::Result {
     )
 }
 
-
 struct AppWrapper {
     md: MdApp,
 }

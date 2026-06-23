@@ -1794,11 +1794,11 @@ pub(crate) fn markdown_to_egui(
                                 // other state, if it captured handles) without aliasing
                                 // the `&mut AppState` that the render fn holds.
                                 references_state = true;
-                                let already =
-                                    widget_fields.iter().any(|f| f.name() == content);
+                                let already = widget_fields.iter().any(|f| f.name() == content);
                                 if !already {
-                                    widget_fields
-                                        .push(WidgetField::CustomSlot { name: content.clone() });
+                                    widget_fields.push(WidgetField::CustomSlot {
+                                        name: content.clone(),
+                                    });
                                 }
                                 let field =
                                     syn::Ident::new(&content, proc_macro2::Span::call_site());

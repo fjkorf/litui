@@ -30,7 +30,7 @@ struct GameApp {
 
 impl Default for GameApp {
     fn default() -> Self {
-        let mut md = pages::MdApp::default();
+        let mut md = MdApp::default();
         populate_data(&mut md.state);
         Self { md }
     }
@@ -45,7 +45,7 @@ const JOB_HP: &[i32] = &[4, -2, 0, 2, 1];
 const JOB_STR: &[i32] = &[3, -1, 1, 0, 2];
 const JOB_DEX: &[i32] = &[0, 1, 4, -1, 3];
 
-fn populate_data(state: &mut pages::AppState) {
+fn populate_data(state: &mut AppState) {
     state.species_list = SPECIES.iter().map(|s| (*s).into()).collect();
     state.job_list = JOBS.iter().map(|s| (*s).into()).collect();
 

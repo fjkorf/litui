@@ -16,10 +16,9 @@
 //!
 //! See `knowledge/frontmatter-and-styles.md` for the full style system design.
 
-use std::collections::HashMap;
-use serde::Deserialize;
-use proc_macro2::TokenStream;
 use quote::quote;
+use serde::Deserialize;
+use std::collections::HashMap;
 
 // -- Frontmatter types --
 #[derive(Deserialize, Default)]
@@ -146,14 +145,20 @@ pub fn merge_style_defs(base: &StyleDef, overlay: &StyleDef) -> StyleDef {
         strikethrough: overlay.strikethrough.or(base.strikethrough),
         underline: overlay.underline.or(base.underline),
         color: overlay.color.clone().or_else(|| base.color.clone()),
-        background: overlay.background.clone().or_else(|| base.background.clone()),
+        background: overlay
+            .background
+            .clone()
+            .or_else(|| base.background.clone()),
         size: overlay.size.or(base.size),
         monospace: overlay.monospace.or(base.monospace),
         weak: overlay.weak.or(base.weak),
         inner_margin: overlay.inner_margin.or(base.inner_margin),
         outer_margin: overlay.outer_margin.or(base.outer_margin),
         stroke: overlay.stroke.or(base.stroke),
-        stroke_color: overlay.stroke_color.clone().or_else(|| base.stroke_color.clone()),
+        stroke_color: overlay
+            .stroke_color
+            .clone()
+            .or_else(|| base.stroke_color.clone()),
         corner_radius: overlay.corner_radius.or(base.corner_radius),
     }
 }
@@ -267,8 +272,14 @@ impl WidgetType {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum WidgetField {
-    Stateful { name: String, ty: WidgetType },
-    Foreach { name: String, row_fields: Vec<String> },
+    Stateful {
+        name: String,
+        ty: WidgetType,
+    },
+    Foreach {
+        name: String,
+        row_fields: Vec<String>,
+    },
 }
 
 impl WidgetField {
@@ -349,7 +360,9 @@ pub fn detect_style_suffix(text: &str) -> (&str, Option<&str>) {
     if let Some(pos) = trimmed.rfind("::") {
         let key = trimmed[pos + 2..].trim();
         if !key.is_empty()
-            && key.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '$')
+            && key
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '_' || c == '$')
         {
             let before = trimmed[..pos].trim_end();
             return (before, Some(key));
