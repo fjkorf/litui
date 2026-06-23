@@ -93,16 +93,15 @@ A parser-crate extraction was started and then **intentionally deferred** — it
   is **not consumed** by the shippable pipeline.
 - `crates/markdown_to_egui_macro/src/_codegen.rs` — the refactor-target codegen, parked and
   underscore-prefixed so it is not in the module tree.
-- `git stash@{0}` — the wiring that would swap `parse.rs` over to emit parser-crate types.
 - the grammar test harness (`tests/grammar_harness.rs` + `tests/grammar_cases/`) — removed from
   the tree because it tests a public `parse_markdown` parser API that can only exist after the
   refactor (a proc-macro crate can't export callable `pub fn`s).
 
 Finishing the refactor would take: implement the stubbed pieces (`lib.rs` currently returns an
 empty `ParsedMarkdown`; `_codegen.rs`'s `show_all` are stubs), port the `WidgetField::CustomSlot`
-variant into the parser crate's `WidgetField` (it currently has only `Stateful`), apply
-`stash@{0}`, then restore the grammar harness against the now-public
-`markdown_to_egui_parser::parse_markdown`.
+variant into the parser crate's `WidgetField` (it currently has only `Stateful`), reconstruct the
+wiring that swaps `parse.rs` over to emit parser-crate types (the original WIP stash was scrapped),
+then restore the grammar harness against the now-public `markdown_to_egui_parser::parse_markdown`.
 
 ## Showcase integrity
 
