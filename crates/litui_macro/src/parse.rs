@@ -32,7 +32,7 @@ impl WidgetType {
             Self::String => quote! { String },
             Self::ByteArray4 => quote! { [u8; 4] },
             Self::VecString => quote! { Vec<String> },
-            Self::Date => quote! { chrono::NaiveDate },
+            Self::Date => quote! { jiff::civil::Date },
         }
     }
 
@@ -45,7 +45,7 @@ impl WidgetType {
             Self::String => quote! { String::new() },
             Self::ByteArray4 => quote! { [255, 255, 255, 255] },
             Self::VecString => quote! { Vec::new() },
-            Self::Date => quote! { chrono::NaiveDate::default() },
+            Self::Date => quote! { jiff::civil::Date::default() },
         }
     }
 }

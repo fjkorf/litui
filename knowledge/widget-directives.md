@@ -45,7 +45,7 @@ The event loop uses index-based iteration (`while event_idx < events.len()`) ins
 | Selectable | `[selectable](field){config}` | `usize` | `0` |
 | Select | `[select](index){list_field}` | `usize` + `Vec<String>` | `0`, `Vec::new()` |
 | Display | `[display](field){config}` | `String` (self-declares) | `String::new()` |
-| Datepicker | `[datepicker](field)` | `chrono::NaiveDate` | `NaiveDate::default()` |
+| Datepicker | `[datepicker](field)` | `jiff::civil::Date` | `Date::default()` |
 | Foreach | `::: foreach field` ... `:::` | `Vec<RowStruct>` | `Vec::new()` |
 
 ## Double Slider (3rd-party: egui_double_slider)
@@ -252,11 +252,11 @@ Calendar date picker using `egui_extras::DatePickerButton`. Shows the selected d
 [datepicker](due_date)
 ```
 
-State: `due_date: chrono::NaiveDate`. Consumer must add dependencies:
+State: `due_date: jiff::civil::Date`. Consumer must add dependencies:
 
 ```toml
-egui_extras = { version = "0.33", features = ["datepicker"] }
-chrono = "0.4"
+egui_extras = { version = "0.34", features = ["datepicker"] }
+jiff = "0.2"
 ```
 
 The widget emits `ui.add(egui_extras::DatePickerButton::new(&mut state.due_date))`.

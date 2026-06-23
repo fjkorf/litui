@@ -108,9 +108,12 @@ fn populate_data(state: &mut AppState) {
     .into();
 }
 
+#[allow(deprecated)]
 impl eframe::App for GameApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         populate_data(&mut self.md.state);
         self.md.show_all(ctx);
     }
+
+    fn ui(&mut self, _ui: &mut egui::Ui, _frame: &mut eframe::Frame) {}
 }

@@ -28,9 +28,12 @@ mod pages {
 use pages::*;
 
 // The generated `Page` and `AppState` live in this crate (emitted by the
-// macro), so we can implement Bevy's `Resource` for them here.
-impl Resource for Page {}
-impl Resource for AppState {}
+// macro). Bevy 0.19 requires `Resource: Component`, so wrap them in newtypes
+// that derive `Resource` (the derive also satisfies the `Component` supertrait).
+#[derive(Resource, Default)]
+struct PageRes(Page);
+#[derive(Resource, Default)]
+struct AppStateRes(AppState);
 
 fn main() {
     App::new()
@@ -42,8 +45,8 @@ fn main() {
             ..default()
         }))
         .add_plugins(EguiPlugin::default())
-        .init_resource::<Page>()
-        .init_resource::<AppState>()
+        .init_resource::<PageRes>()
+        .init_resource::<AppStateRes>()
         .add_systems(Startup, (setup, install_custom_slots))
         .add_systems(EguiPrimaryContextPass, (render_nav, render_page).chain())
         .run();
@@ -55,9 +58,9 @@ fn setup(mut commands: Commands<'_, '_>) {
 
 /// Fill the custom slots. This is the user-facing API:
 /// `state.<slot> = Some(Box::new(|ui| { /* raw egui */ }))`.
-fn install_custom_slots(mut state: ResMut<'_, AppState>) {
+fn install_custom_slots(mut state: ResMut<'_, AppStateRes>) {
     // Case 1: a custom widget inside a Markdown page.
-    state.demo_slot = Some(Box::new(|ui| {
+    state.0.demo_slot = Some(Box::new(|ui| {
         eprintln!("[13_custom] demo_slot closure invoked");
         ui.label("custom egui here");
         let _ = ui.button("native");
@@ -67,7 +70,7 @@ fn install_custom_slots(mut state: ResMut<'_, AppState>) {
     // would capture an `Arc<Mutex<EmulatorState>>` here (Send + Sync), which
     // satisfies the required bound.
     let mut frame_counter: u64 = 0;
-    state.panel_slot = Some(Box::new(move |ui| {
+    state.0.panel_slot = Some(Box::new(move |ui| {
         frame_counter += 1; // proves FnMut: the closure mutates captured state
         ui.heading("Bespoke Panel (raw egui)");
         ui.label(format!("rendered frame #{frame_counter}"));
@@ -79,13 +82,13 @@ fn install_custom_slots(mut state: ResMut<'_, AppState>) {
     }));
 }
 
-fn render_nav(mut ctxs: EguiContexts<'_, '_>, mut current: ResMut<'_, Page>) -> Result {
+fn render_nav(mut ctxs: EguiContexts<'_, '_>, mut current: ResMut<'_, PageRes>) -> Result {
     egui_extras::install_image_loaders(ctxs.ctx_mut()?);
     egui::TopBottomPanel::top("nav").show(ctxs.ctx_mut()?, |ui| {
         ui.horizontal(|ui| {
             for &p in Page::ALL {
-                if ui.selectable_label(*current == p, p.label()).clicked() {
-                    *current = p;
+                if ui.selectable_label(current.0 == p, p.label()).clicked() {
+                    current.0 = p;
                 }
             }
         });
@@ -95,14 +98,14 @@ fn render_nav(mut ctxs: EguiContexts<'_, '_>, mut current: ResMut<'_, Page>) -> 
 
 fn render_page(
     mut ctxs: EguiContexts<'_, '_>,
-    current: Res<'_, Page>,
-    mut state: ResMut<'_, AppState>,
+    current: Res<'_, PageRes>,
+    mut state: ResMut<'_, AppStateRes>,
 ) -> Result {
     egui::CentralPanel::default().show(ctxs.ctx_mut()?, |ui| {
-        egui::ScrollArea::vertical().show(ui, |ui| match *current {
+        egui::ScrollArea::vertical().show(ui, |ui| match current.0 {
             // Both pages have custom slots, so both take `&mut AppState`.
-            Page::Mixed => render_mixed(ui, &mut state),
-            Page::Panel => render_panel(ui, &mut state),
+            Page::Mixed => render_mixed(ui, &mut state.0),
+            Page::Panel => render_panel(ui, &mut state.0),
         });
     });
     Ok(())

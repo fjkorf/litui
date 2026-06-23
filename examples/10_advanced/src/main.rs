@@ -41,6 +41,7 @@ struct AppWrapper {
     md: LituiApp,
 }
 
+#[allow(deprecated)]
 impl eframe::App for AppWrapper {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui_extras::install_image_loaders(ctx);
@@ -79,4 +80,6 @@ impl eframe::App for AppWrapper {
 
         self.md.show_all(ctx);
     }
+
+    fn ui(&mut self, _ui: &mut egui::Ui, _frame: &mut eframe::Frame) {}
 }

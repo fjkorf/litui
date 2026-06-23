@@ -203,7 +203,7 @@ nav:
 | Display | `display` | `String` (self-declares) | `String::new()` | Read-only; self-declares if no input widget owns the field |
 | Spinner | `spinner` | none | — | Stateless |
 | Log | `log` | `Vec<String>` | `Vec::new()` | Scrollable, stick-to-bottom |
-| Datepicker | `datepicker` | `chrono::NaiveDate` | `NaiveDate::default()` | Calendar popup; requires `egui_extras` with `datepicker` feature + `chrono` |
+| Datepicker | `datepicker` | `jiff::civil::Date` | `Date::default()` | Calendar popup; requires `egui_extras` with `datepicker` feature + `jiff` |
 
 ---
 
