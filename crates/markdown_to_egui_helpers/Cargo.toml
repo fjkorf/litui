@@ -8,7 +8,7 @@ authors = ["egui contributors"]
 description = "Helper functions for egui markdown macro rendering."
 
 [dependencies]
-eframe = "0.33"
+eframe = "0.34"
 
 [lints]
 workspace = true

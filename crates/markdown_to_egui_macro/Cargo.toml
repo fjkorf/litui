@@ -9,7 +9,7 @@ version.workspace = true
 proc-macro = true
 
 [dev-dependencies]
-egui = "0.33"
+egui = "0.34"
 
 [dependencies]
 pulldown-cmark = "0.9"
@@ -25,7 +25,7 @@ markdown_to_egui_parser = { path = "../markdown_to_egui_parser" }
 bevy = ["dep:bevy"]
 
 [dependencies.bevy]
-version = "0.18"
+version = "0.19"
 optional = true
 
 [lints]

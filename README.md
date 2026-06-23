@@ -260,9 +260,9 @@ cargo test                            # run all tests
 
 ## Dependencies
 
-- **egui/eframe** 0.33 — immediate-mode GUI (crates.io)
+- **egui/eframe** 0.34 — immediate-mode GUI (crates.io)
 - **pulldown-cmark** 0.9 — Markdown parser
-- **bevy_ecs** 0.18 — standalone ECS for shared state (demo app)
+- **bevy_ecs** 0.19 — standalone ECS for shared state (demo app)
 - **egui_double_slider** 1.0 — range slider widget (optional)
 - **serde/serde_yaml** — YAML frontmatter parsing
 - **syn/quote** — proc-macro infrastructure

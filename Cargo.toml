@@ -11,8 +11,10 @@ members = [
 [workspace.package]
 edition = "2024"
 license = "MIT OR Apache-2.0"
-rust-version = "1.92"
-version = "0.33.3"
+# bevy 0.19 requires Rust >= 1.95.
+rust-version = "1.95"
+# Tracks the egui generation litui targets (egui 0.34.x).
+version = "0.34.0"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

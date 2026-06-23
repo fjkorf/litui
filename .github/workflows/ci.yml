@@ -1,0 +1,43 @@
+name: CI
+
+# Gates the manual pre-push checklist (CLAUDE.md) in automation: format, lint,
+# and the workspace test suite run on every PR and on pushes to main.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: fmt + clippy + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Bevy (examples 11 and 13) needs ALSA and udev headers to build on Linux.
+      - name: Install Linux system deps for bevy
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev
+
+      # bevy 0.19 requires Rust >= 1.95; stable is well past that.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      # Lint. Pre-existing style warnings are not yet denied (see the clippy
+      # cleanup backlog), so this gates on clippy/compile *errors*, not warnings.
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets
+
+      # Run the full suite EXCEPT the egui_kittest snapshot suite: its PNG
+      # baselines are rendered on macOS and differ from Linux font rasterization,
+      # so snapshots remain a local/manual check (UPDATE_SNAPSHOTS=1 on macOS).
+      - name: Test
+        run: cargo test --workspace --exclude snapshot_tests

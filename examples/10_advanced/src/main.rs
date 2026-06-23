@@ -29,7 +29,10 @@ struct AppWrapper {
     md: MdApp,
 }
 
+#[allow(deprecated)] // eframe 0.34: work stays in `update` (still called with `&Context`); `ui` is the new required method.
 impl eframe::App for AppWrapper {
+    fn ui(&mut self, _ui: &mut egui::Ui, _frame: &mut eframe::Frame) {}
+
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui_extras::install_image_loaders(ctx);
 

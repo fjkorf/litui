@@ -54,7 +54,7 @@ custom slot is present. At runtime the macro uses a **take/replace** calling pat
 closure out of the `Option`, call it, put it back — to satisfy the borrow checker across the
 proc-macro boundary. The earlier lifetime concern is closed.
 
-Proven on the full Bevy stack (bevy 0.18 / bevy_egui 0.39 / egui 0.33) via
+Proven on the full Bevy stack (bevy 0.19 / bevy_egui 0.40 / egui 0.34) via
 `examples/13_custom/`, with 2 passing headless tests, including the **whole-page-as-slot** case:
 `examples/13_custom/content/panel.md` is a page whose entire body is just
 `[custom](panel_slot)`. Relates to
@@ -79,7 +79,7 @@ recommended pattern for any litui-in-a-real-app integration.
 
 ## Adoption risk litui must address: version policy
 
-RustRetro currently lags litui (egui 0.31 vs 0.33; bevy 0.15 vs 0.18). Binding a real app to
+RustRetro currently lags litui (egui 0.31 vs 0.34; bevy 0.15 vs 0.19). Binding a real app to
 litui couples it to litui's egui cadence. litui should ship a stable-ish release with a stated
 **minimum supported egui** (and ideally CI against two versions) so a litui egui bump doesn't
 force-march every consumer. This is a prerequisite for litui being credible beyond demos.

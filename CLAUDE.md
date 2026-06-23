@@ -90,15 +90,26 @@ cargo test -p litui --test generate_screenshots            # regen tutorial PNGs
 litui -> { markdown_to_egui_macro, markdown_to_egui_helpers }
 tut_01..07 -> { litui, eframe }
 tut_08..10, tut_12 -> { litui, eframe, egui }
-tut_11 -> { litui, bevy, bevy_egui }
+tut_11 -> { litui, bevy 0.19, bevy_egui 0.40 }
 markdown_to_egui_macro -> { pulldown-cmark 0.9, quote, syn, serde_yaml }
 snapshot_tests -> { markdown_to_egui_macro, markdown_to_egui_helpers, egui_kittest }
 ```
 
+### Versions & MSRV
+
+- **MSRV: Rust 1.95** (required by bevy 0.19)
+- `litui` crate version: **0.34.0** (tracks the egui generation)
+- `egui` / `eframe` / `egui_extras` / `egui_kittest`: **0.34.3**
+- `bevy`: **0.19.0**, `bevy_egui`: **0.40.0**
+
 ### egui
 
-- Source: crates.io `egui`/`eframe` v0.33.3 (migrated from fjkorf/egui fork)
-- Standard upstream API: `eframe::App::update()`, `CentralPanel::default().show(ctx, |ui| { ... })`
+- Source: crates.io `egui`/`eframe` v0.34.3 (migrated from fjkorf/egui fork)
+- Standard upstream API: `CentralPanel::default().show(ctx, |ui| { ... })`
+- **eframe 0.34** deprecated `App::update` in favor of a new required
+  `App::ui(&mut self, &mut egui::Ui, &mut Frame)`. The runner still calls `update` (with
+  `&Context`), so the examples keep their panel logic in `update` and add an empty `ui` plus
+  `#[allow(deprecated)]`.
 - 3rd-party egui crates (egui_double_slider, etc.) work without `[patch.crates-io]`
 
 ## Build & Run
@@ -107,7 +118,7 @@ snapshot_tests -> { markdown_to_egui_macro, markdown_to_egui_helpers, egui_kitte
 cargo check
 cargo fmt
 cargo clippy
-cargo test                                                 # run all 31 tests
+cargo test                                                 # run all ~63 tests (+ ~17 intentionally-ignored doctests)
 cargo run -p tut_01_hello                                  # run the hello world example
 cargo run -p tut_08_multi_page                             # run the multi-page demo
 cargo run -p tut_12_game                                   # run the game UI demo
@@ -126,3 +137,10 @@ python3 scripts/generate-doc-markdown.py                   # regenerate knowledg
 - Footnotes
 - HTML passthrough
 - Input widgets inside `::: foreach` blocks
+
+## Known tech debt
+
+- **egui 0.34 deprecations (migration pending).** The 0.34 bump deprecated several panel/window
+  APIs the codebase still uses: `Panel::show` → `show_inside`, `Panel::top`/`bottom`,
+  `run_ui_native`, and the `default_size` rename. This produces ~50 deprecation warnings. They are
+  **non-breaking** (everything builds and tests pass) — migration is deferred.
