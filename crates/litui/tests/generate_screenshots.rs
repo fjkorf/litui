@@ -12,6 +12,13 @@ use litui::*;
 const IMG_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/src/_tutorial/img");
 
 fn render_and_save(name: &str, ui_fn: impl FnMut(&mut egui::Ui) + 'static) {
+    // This is a generator (it writes tutorial PNGs, asserts nothing) and needs a
+    // GPU via egui_kittest's wgpu backend. Skip it where no adapter exists (CI),
+    // so `cargo test --workspace` stays green on headless runners. Run locally to
+    // regenerate the screenshots.
+    if std::env::var_os("LITUI_SKIP_SCREENSHOTS").is_some() {
+        return;
+    }
     let width = 600.0;
     let mut harness = Harness::builder()
         .with_size(egui::vec2(width, 400.0))

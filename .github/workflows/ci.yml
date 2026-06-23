@@ -9,6 +9,9 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # The litui generate_screenshots test target is a GPU-backed PNG generator
+  # (egui_kittest wgpu), not an assertion test; skip it on the headless runner.
+  LITUI_SKIP_SCREENSHOTS: "1"
 
 jobs:
   check:
