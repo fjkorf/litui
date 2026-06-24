@@ -53,6 +53,7 @@ cargo test -p litui --test generate_screenshots            # regen tutorial PNGs
 | [`common-pitfalls.md`](knowledge/common-pitfalls.md) | **Start here when debugging** — 18 gotchas with solutions |
 | [`third-party-widgets.md`](knowledge/third-party-widgets.md) | Integrating external egui widget crates (built-in vs manual patterns) |
 | [`bevy-ecs-integration.md`](knowledge/bevy-ecs-integration.md) | ECS state management, DemoApp architecture, future Bevy plans |
+| [`egui-0.34-panel-migration.md`](knowledge/egui-0.34-panel-migration.md) | **Why** egui deprecated `Panel::show(ctx)`; the bevy_egui root-`Ui` blocker; the `#[allow(deprecated)]` stopgap; handoff prompts (litui-side + bevy_egui upstream) |
 | [`dynamic-styling-design.md`](knowledge/dynamic-styling-design.md) | **Design research** — `[style]` block, `{$field}`, container directives (not yet implemented) |
 | [`layout-and-spacing.md`](knowledge/layout-and-spacing.md) | Spacing defaults, CSS→egui mapping, future Frame/column plans |
 | [`api/API.md`](knowledge/api/API.md) | **Generated** — full struct fields, fn signatures, enum variants, consts, imports |
