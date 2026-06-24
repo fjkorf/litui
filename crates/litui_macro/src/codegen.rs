@@ -1001,6 +1001,11 @@ pub(crate) fn define_litui_app_impl(
             /// Side panels are always visible. Windows appear for the current page.
             /// If any pages lack a `panel:` directive, a central panel dispatches them.
             /// When all pages have explicit panels, no central panel is emitted.
+            // egui 0.34 deprecated Context-based panel `.show(ctx)` in favor of
+            // `show_inside(ui)`, but that requires a root `Ui` which bevy_egui
+            // 0.40 does not expose (only `&Context`). Keeping the ctx-based,
+            // cross-backend API and silencing the deprecation in generated code.
+            #[allow(deprecated)]
             pub fn show_all(&mut self, ctx: &egui::Context) {
                 #theme_call
 
@@ -1022,6 +1027,9 @@ pub(crate) fn define_litui_app_impl(
     } else {
         // No containers — generate a simple nav + central panel layout
         quote! {
+            // See the note above: ctx-based panel `.show` is kept (deprecated in
+            // egui 0.34) for bevy_egui compatibility; silence it in generated code.
+            #[allow(deprecated)]
             pub fn show_all(&mut self, ctx: &egui::Context) {
                 #theme_call
                 #nav_panel_code
@@ -1187,7 +1195,9 @@ fn generate_theme_setup(theme: &Option<ThemeDef>) -> Option<proc_macro2::TokenSt
 
     Some(quote! {
         fn __setup_theme(ctx: &egui::Context) {
-            ctx.style_mut(|style| {
+            // egui 0.34 renamed Context::style_mut -> global_style_mut (to avoid
+            // confusion with Ui::style_mut). Clean cross-backend rename.
+            ctx.global_style_mut(|style| {
                 #(#base_stmts)*
                 #conditional_block
             });

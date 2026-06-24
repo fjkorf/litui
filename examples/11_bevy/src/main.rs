@@ -41,6 +41,8 @@ fn setup(mut commands: Commands<'_, '_>) {
     commands.spawn(Camera2d);
 }
 
+// bevy_egui 0.40 exposes only &Context (no root Ui), so ctx-based panel show stays; egui 0.34 deprecated it.
+#[allow(deprecated)]
 fn render_nav(mut ctxs: EguiContexts<'_, '_>, mut current: ResMut<'_, PageRes>) -> Result {
     egui_extras::install_image_loaders(ctxs.ctx_mut()?);
     egui::TopBottomPanel::top("nav").show(ctxs.ctx_mut()?, |ui| {
@@ -55,6 +57,8 @@ fn render_nav(mut ctxs: EguiContexts<'_, '_>, mut current: ResMut<'_, PageRes>) 
     Ok(())
 }
 
+// bevy_egui 0.40 exposes only &Context (no root Ui), so ctx-based panel show stays; egui 0.34 deprecated it.
+#[allow(deprecated)]
 fn render_page(
     mut ctxs: EguiContexts<'_, '_>,
     current: Res<'_, PageRes>,
